@@ -163,6 +163,11 @@ class IntentRouter:
             return "Yes. I'm here and working. What do you need?"
         if low in {"thanks", "thank you", "cheers"}:
             return "Anytime."
+        if "joke" in low:
+            return "A SQL query walks into a bar, walks up to two tables, and asks: “Mind if I join you?”"
+        if low in {"do something", "do anything", "prove it", "work", "do your job"}:
+            return "Name it. Open an app, find a file, look something up, remember a fact — I'll do that."
+            return "Anytime."
         if "what time" in low or "the time" in low or low.endswith("right now") or low in {"time", "date"}:
             return datetime.now().strftime("It's %I:%M %p on %A, %d %B %Y.")
         if low in {"who are you", "what is your name"}:

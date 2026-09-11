@@ -106,9 +106,9 @@ class MainWindow(QMainWindow):
     def _autoload(self):
         def job():
             try:
-                return self.brain.ensure_local_model()
+                return self.brain.bootstrap()
             except Exception as e:
-                return f"Autoload: {e}"
+                return f"Startup: {e}"
 
         self.worker = Worker(job)
         self._workers.append(self.worker)
@@ -118,8 +118,11 @@ class MainWindow(QMainWindow):
     def _on_autoload(self, msg: str):
         if getattr(self, "status", None):
             self.status.setText(f"{self.assistant} • {self.brain.mode_label}")
-        if "Loaded" in (msg or "") or "Already loaded" in (msg or ""):
-            self.chat.append(f"{self.assistant}: Model's ready.")
+        text = msg or ""
+        if any(s in text for s in ("Loaded", "Already loaded", "CLI engine ready")):
+            self.chat.append(f"{self.assistant}: Local brain is online.")
+        elif "No local" in text or "skipped" in text or "download" in text.lower():
+            pass
 
     def _chat_tab(self) -> QWidget:
         w = QWidget()
@@ -145,7 +148,10 @@ class MainWindow(QMainWindow):
         self.input.returnPressed.connect(self.send)
         speak_btn.clicked.connect(self.listen)
         shot.clicked.connect(self.screenshot)
-        self.chat.append(f"{self.assistant}: {greeting(self.user)}")
+        self.chat.append(
+            f"{self.assistant}: {greeting(self.user)} "
+            "I'll install my local brain in the background — you can talk now."
+        )
         return w
 
     def _memory_tab(self) -> QWidget:
@@ -188,11 +194,10 @@ class MainWindow(QMainWindow):
         ai = self.settings.get("ai") or {}
         self.s_user = QLineEdit(self.settings.get("user_name", "Ty"))
         self.s_assistant = QLineEdit(self.settings.get("assistant_name", "JARVIS"))
-        self.s_provider = QLineEdit(ai.get("provider", "xai"))
-        self.s_model_id = QLineEdit(ai.get("model") or ai.get("local_model_id") or "jarvis")
+        self.s_provider = QLineEdit("auto")
+        self.s_model_id = QLineEdit(ai.get("local_model_id") or "tinyllama-1.1b-q4")
         self.s_model_path = QLineEdit(ai.get("local_model_path", ""))
-        self.s_apikey = QLineEdit(ai.get("api_key", ""))
-        self.s_apikey.setEchoMode(QLineEdit.EchoMode.Password)
+        self.s_apikey = QLineEdit("")
         self.s_discord = QLineEdit((self.settings.get("discord") or {}).get("bot_token", ""))
         self.s_discord.setEchoMode(QLineEdit.EchoMode.Password)
         self.s_ctx = QLineEdit(str(ai.get("n_ctx", 2048)))
@@ -201,41 +206,22 @@ class MainWindow(QMainWindow):
         self.s_voice = QCheckBox("Speak replies aloud")
         self.s_voice.setChecked(bool((self.settings.get("voice") or {}).get("enabled")))
         save_btn = QPushButton("Save settings")
-        dl_btn = QPushButton("Download local model")
-        load_btn = QPushButton("Load local model")
-        hw_btn = QPushButton("Detect hardware")
         index_btn = QPushButton("Index a folder on this PC")
         discord_btn = QPushButton("Start Discord (phone DMs)")
         form.addRow("Your name", self.s_user)
         form.addRow("Assistant name", self.s_assistant)
-        form.addRow("Provider (xai / local / ollama)", self.s_provider)
-        form.addRow("Model (fast / jarvis / sharp)", self.s_model_id)
-        form.addRow("xAI API key (fast Grok)", self.s_apikey)
-        form.addRow("Discord bot token (phone DMs)", self.s_discord)
-        form.addRow("Custom .gguf path (optional)", self.s_model_path)
-        form.addRow("Context size", self.s_ctx)
-        form.addRow("Temperature", self.s_temp)
-        form.addRow("Max tokens", self.s_maxtok)
         form.addRow(self.s_voice)
-        row = QHBoxLayout()
-        row.addWidget(save_btn)
-        row.addWidget(dl_btn)
-        row.addWidget(load_btn)
-        row.addWidget(hw_btn)
-        form.addRow(row)
+        form.addRow("Discord bot token (optional)", self.s_discord)
+        form.addRow(save_btn)
         form.addRow(index_btn)
         form.addRow(discord_btn)
         save_btn.clicked.connect(self.save_settings)
-        dl_btn.clicked.connect(self.download_model)
-        load_btn.clicked.connect(self.load_model)
-        hw_btn.clicked.connect(self.show_hardware)
         index_btn.clicked.connect(self.index_folder)
         discord_btn.clicked.connect(self.start_discord)
         hint = QLabel(
-            "This is the Windows desktop app.\n"
-            "Fast chat: paste an xAI API key, provider=xai, model=jarvis (or fast / sharp).\n"
-            "Offline: Download local model, then Load. Ids: tinyllama-1.1b-q4 | qwen2.5-1.5b-q4 | phi3-mini-q4\n"
-            "Phone: create a Discord bot, paste the token, Start Discord, then DM that bot from your phone."
+            "JARVIS installs its own local brain on first run. No API keys.\n"
+            "Index a folder if you want it to learn files on this PC.\n"
+            "Discord is only for talking from your phone — optional."
         )
         hint.setWordWrap(True)
         form.addRow(hint)
@@ -337,22 +323,11 @@ class MainWindow(QMainWindow):
         self.settings["user_name"] = self.s_user.text().strip() or "Ty"
         self.settings["assistant_name"] = self.s_assistant.text().strip() or "JARVIS"
         self.settings.setdefault("ai", {})
-        self.settings["ai"]["provider"] = self.s_provider.text().strip() or "xai"
-        model_field = self.s_model_id.text().strip() or "jarvis"
-        self.settings["ai"]["model"] = model_field
-        grok_ids = {"fast", "jarvis", "sharp", "grok", "grok-4.3", "grok-4.5", "grok-4.6"}
-        if model_field.lower() in grok_ids:
-            self.settings["ai"]["local_model_id"] = (
-                (self.settings.get("ai") or {}).get("local_model_id") or "tinyllama-1.1b-q4"
-            )
-            if self.settings["ai"]["local_model_id"].lower() in grok_ids:
-                self.settings["ai"]["local_model_id"] = "tinyllama-1.1b-q4"
-        else:
-            self.settings["ai"]["local_model_id"] = model_field
+        self.settings["ai"]["provider"] = "auto"
+        self.settings["ai"]["model"] = "tinyllama-1.1b-q4"
+        self.settings["ai"]["local_model_id"] = "tinyllama-1.1b-q4"
         self.settings["ai"]["local_model_path"] = self.s_model_path.text().strip()
-        self.settings["ai"]["api_key"] = self.s_apikey.text().strip()
-        if self.settings["ai"]["provider"] in ("xai", "grok", ""):
-            self.settings["ai"]["api_base"] = "https://api.x.ai/v1"
+        self.settings["ai"]["api_key"] = ""
         self.settings.setdefault("discord", {})
         self.settings["discord"]["bot_token"] = self.s_discord.text().strip()
         try:

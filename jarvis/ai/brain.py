@@ -73,11 +73,10 @@ class Brain:
             if provider in ("openai", "xai", "ollama"):
                 if provider == "ollama":
                     return "Ollama"
-                return "Needs API key (Settings)"
             found = self.models.list_installed()
             if found:
-                return f"Model on disk ({found[0]}) — click Load"
-            return "Local (model not loaded)"
+                return f"Model on disk ({found[0]}) — loading"
+            return "Independent"
         except Exception:
             return "JARVIS"
 
@@ -127,6 +126,25 @@ class Brain:
             self.audit.log(msg)
         return msg
 
+    def bootstrap(self, progress_cb=None) -> str:
+        """First-run: load a local model if present, otherwise download one."""
+        if self.engine.ready:
+            return f"Already loaded: {self.engine.model_path.name}"
+        msg = self.ensure_local_model()
+        if self.engine.ready:
+            return msg
+        try:
+            dl = self.download_model(progress_cb=progress_cb)
+            load = self.ensure_local_model()
+            return f"{dl}\n{load}"
+        except Exception as e:
+            if self.audit:
+                self.audit.log(f"bootstrap: {e}")
+            return (
+                "No local weights yet — I'll still open apps, find files, "
+                f"and look things up. ({e})"
+            )
+
     def download_model(self, model_id: str | None = None, progress_cb=None) -> str:
         ai = self.s.get("ai") or {}
         mid = model_id or ai.get("local_model_id") or probe()["recommended_model_id"]
@@ -172,7 +190,7 @@ class Brain:
                 self.audit.log(f"chat crash: {e}")
             return (
                 "Caught that — had a wobble on my side. "
-                f"({e})\nTry saying hi again, or Load local model in Settings."
+                f"({e}) Try saying that again."
             )
 
     def _chat_inner(self, message: str) -> str:
@@ -211,7 +229,7 @@ class Brain:
             self.s["ai"].setdefault("api_base", "https://api.x.ai/v1")
             self.s["ai"].setdefault("model", "grok-4.5")
 
-        provider = ((self.s.get("ai") or {}).get("provider") or "xai").lower()
+        provider = ((self.s.get("ai") or {}).get("provider") or "auto").lower()
         key = ((self.s.get("ai") or {}).get("api_key") or "").strip()
 
         if key and provider in ("xai", "grok", "openai", "auto", ""):
@@ -228,17 +246,22 @@ class Brain:
                 if self.audit:
                     self.audit.log(f"Grok chat: {e}")
 
-        if provider == "ollama":
-            try:
-                from jarvis.ai.cloud_optional import cloud_chat
+        try:
+            from jarvis.ai.free_brain import ollama_up
+            from jarvis.ai.cloud_optional import cloud_chat
 
+            if ollama_up() and provider in ("ollama", "auto", "local", ""):
+                self.s.setdefault("ai", {})
+                self.s["ai"]["provider"] = self.s["ai"].get("provider") or "ollama"
                 reply = cloud_chat(self.s, self.system_prompt(), self.history, message)
-                self._push(message, reply)
-                return reply
-            except Exception as e:
-                return f"Ollama didn't go through: {e}"
+                if reply:
+                    self._push(message, reply)
+                    return reply
+        except Exception as e:
+            if self.audit:
+                self.audit.log(f"Ollama: {e}")
 
-        if provider == "local" and not self.engine.ready and not self._autoload_attempted:
+        if not self.engine.ready and not self._autoload_attempted:
             self._autoload_attempted = True
             try:
                 self.ensure_local_model()
@@ -278,10 +301,24 @@ class Brain:
                 self._push(message, fallback)
                 return fallback
 
-        return (
-            "Yes — I'm running. Chat needs an xAI key in Settings, or Download local model. "
-            "I can still open apps, find folders, and remember things without that."
+        try:
+            from jarvis.ai.free_brain import answer
+
+            hit = answer(message, self.web)
+            if hit:
+                self._push(message, hit)
+                return hit
+        except Exception as e:
+            if self.audit:
+                self.audit.log(f"free brain: {e}")
+
+        reply = (
+            "I'm here and I can do it — open apps, find files, look things up, remember stuff. "
+            f"On “{message[:80]}”: say it as an action (open …, find …, search …) "
+            "or ask a question and I'll look it up."
         )
+        self._push(message, reply)
+        return reply
 
     def _greeting_reply(self) -> str:
         name = self.s.get("user_name", "Ty")

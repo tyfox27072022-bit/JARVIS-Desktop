@@ -1,34 +1,14 @@
-JARVIS for Windows (desktop app — not a website)
-================================================
+JARVIS
+======
 
-You cannot install a Windows program from a browser tab. This folder IS the desktop app.
-
-Fastest (Python already installed)
-----------------------------------
-1. Unzip this folder somewhere like C:\JARVIS
+1. Unzip this folder (example: C:\JARVIS)
 2. Double-click RUN_JARVIS.bat
-3. A real JARVIS window opens (PySide — not a browser)
+3. Talk to it
 
-Make JARVIS.exe and a Desktop icon
-----------------------------------
-1. Install Python 3.11 or 3.12 from python.org — tick "Add python.exe to PATH"
-2. Double-click BUILD_JARVIS.bat and wait (first time installs packages, then builds)
-3. When it says BUILD SUCCESSFUL, JARVIS.exe is in dist\JARVIS\
-   A shortcut named JARVIS is placed on your Desktop
-4. Double-click that. No browser. No link.
+That's it. No API keys. First run installs Python packages if needed,
+then JARVIS downloads its own local brain in the background (~0.7 GB, once).
+You can already open apps, find files, do maths, and look things up while that finishes.
 
-First time in the app
----------------------
-Fast brain: Settings → paste an xAI API key → provider = xai → model = jarvis → Save
-Offline brain: Settings → Download local model → Load local model
-Learn files: Settings → Index a folder on this PC (Desktop, Documents, Downloads…)
-Phone: make a Discord bot at discord.com/developers, enable Message Content Intent,
-       paste the token in Settings, click Start Discord, then DM that bot from your phone.
+If Python is missing, RUN_JARVIS.bat will try to install it.
 
-Commands that work even without a model
----------------------------------------
-open spotify / discord / notepad
-find folder …
-remember …
-what time is it
-index happens from Settings
+Optional later: BUILD_JARVIS.bat makes JARVIS.exe and a Desktop shortcut.

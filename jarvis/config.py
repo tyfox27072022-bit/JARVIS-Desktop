@@ -12,7 +12,7 @@ DEFAULT = {
         "British-assistant manner: composed, not stiff. Use contractions."
     ),
     "ai": {
-        "provider": "local",
+        "provider": "auto",
         "local_model_id": "tinyllama-1.1b-q4",
         "local_model_path": "",
         "n_ctx": 2048,
