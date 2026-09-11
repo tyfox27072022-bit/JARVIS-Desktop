@@ -41,14 +41,25 @@ class PCController:
             "discord": "discord:",
             "chrome": "chrome.exe",
             "edge": "msedge.exe",
+            "firefox": "firefox.exe",
             "spotify": "spotify:",
             "steam": "steam.exe",
+            "taskmgr": "taskmgr.exe",
+            "cmd": "cmd.exe",
+            "powershell": "powershell.exe",
+            "ms-settings:": "ms-settings:",
         }
         target = self.allowed_apps.get(key) or builtins.get(key)
         if not target:
-            return f"I don't have '{name}' on the allowed list yet."
+            # Last try: treat the name as a program on PATH / protocol
+            if key.endswith(":") or key.endswith(".exe"):
+                target = key
+            else:
+                target = key if key.endswith(".exe") else f"{key}.exe"
         try:
-            if target.endswith(":"):
+            if target.startswith("http://") or target.startswith("https://"):
+                webbrowser.open(target)
+            elif target.endswith(":") or target.startswith("ms-"):
                 if sys.platform == "win32":
                     os.startfile(target)  # type: ignore[attr-defined]
                 else:

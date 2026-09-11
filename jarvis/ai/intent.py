@@ -16,9 +16,37 @@ APPS = {
     "file explorer": "explorer",
     "discord": "discord",
     "chrome": "chrome",
+    "google chrome": "chrome",
     "edge": "edge",
+    "microsoft edge": "edge",
+    "firefox": "firefox",
     "spotify": "spotify",
     "steam": "steam",
+    "task manager": "taskmgr",
+    "cmd": "cmd",
+    "command prompt": "cmd",
+    "powershell": "powershell",
+    "settings": "ms-settings:",
+}
+
+SITES = {
+    "google": "https://www.google.com",
+    "google.com": "https://www.google.com",
+    "youtube": "https://www.youtube.com",
+    "gmail": "https://mail.google.com",
+    "maps": "https://maps.google.com",
+    "google maps": "https://maps.google.com",
+    "twitter": "https://x.com",
+    "x": "https://x.com",
+    "facebook": "https://www.facebook.com",
+    "reddit": "https://www.reddit.com",
+    "netflix": "https://www.netflix.com",
+    "amazon": "https://www.amazon.co.uk",
+    "twitch": "https://www.twitch.tv",
+    "github": "https://github.com",
+    "discord web": "https://discord.com/app",
+    "whatsapp": "https://web.whatsapp.com",
+    "bing": "https://www.bing.com",
 }
 
 
@@ -127,6 +155,12 @@ class IntentRouter:
             return f"Evening {name}. What's next?"
         if low in {"how are you", "how're you", "you good", "you alright", "how r u", "whats up", "what's up"}:
             return "I'm good. What do you need?"
+        if low in {
+            "are you working", "you working", "are you there", "you there",
+            "can you hear me", "test", "testing", "hello?", "you up",
+            "are you up", "still there",
+        }:
+            return "Yes. I'm here and working. What do you need?"
         if low in {"thanks", "thank you", "cheers"}:
             return "Anytime."
         if "what time" in low or "the time" in low or low.endswith("right now") or low in {"time", "date"}:
@@ -138,20 +172,25 @@ class IntentRouter:
         return None
 
     def _open(self, raw: str, low: str) -> str | None:
-        m = re.match(r"^(?:open|launch|start|play)\s+(.+)$", low)
+        m = re.match(r"^(?:open|launch|start|play|go to)\s+(.+)$", low)
         if not m:
             return None
-        target = m.group(1).strip()
+        target = m.group(1).strip().rstrip(".")
         if target.startswith("http"):
             url = raw.split(None, 1)[1] if " " in raw else target
             return self.b.pc.open_url(url)
         if target.startswith("folder "):
             return self.b.pc.open_folder(target[7:].strip())
-        # longest app name first
         for phrase in sorted(APPS, key=len, reverse=True):
             if target == phrase or target.startswith(phrase + " "):
                 return self.b.pc.open_app(APPS[phrase])
-        return None
+        for phrase in sorted(SITES, key=len, reverse=True):
+            if target == phrase or target.startswith(phrase + " "):
+                return self.b.pc.open_url(SITES[phrase])
+        if " " not in target and "." in target:
+            url = target if target.startswith("http") else "https://" + target
+            return self.b.pc.open_url(url)
+        return self.b.pc.open_app(target)
 
     def _wants_organize(self, low: str) -> bool:
         if low in {"order my files", "sort my files", "organise my files", "organize my files", "tidy my files"}:

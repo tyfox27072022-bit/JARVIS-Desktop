@@ -338,8 +338,17 @@ class MainWindow(QMainWindow):
         self.settings["assistant_name"] = self.s_assistant.text().strip() or "JARVIS"
         self.settings.setdefault("ai", {})
         self.settings["ai"]["provider"] = self.s_provider.text().strip() or "xai"
-        self.settings["ai"]["model"] = self.s_model_id.text().strip() or "jarvis"
-        self.settings["ai"]["local_model_id"] = self.s_model_id.text().strip() or "tinyllama-1.1b-q4"
+        model_field = self.s_model_id.text().strip() or "jarvis"
+        self.settings["ai"]["model"] = model_field
+        grok_ids = {"fast", "jarvis", "sharp", "grok", "grok-4.3", "grok-4.5", "grok-4.6"}
+        if model_field.lower() in grok_ids:
+            self.settings["ai"]["local_model_id"] = (
+                (self.settings.get("ai") or {}).get("local_model_id") or "tinyllama-1.1b-q4"
+            )
+            if self.settings["ai"]["local_model_id"].lower() in grok_ids:
+                self.settings["ai"]["local_model_id"] = "tinyllama-1.1b-q4"
+        else:
+            self.settings["ai"]["local_model_id"] = model_field
         self.settings["ai"]["local_model_path"] = self.s_model_path.text().strip()
         self.settings["ai"]["api_key"] = self.s_apikey.text().strip()
         if self.settings["ai"]["provider"] in ("xai", "grok", ""):

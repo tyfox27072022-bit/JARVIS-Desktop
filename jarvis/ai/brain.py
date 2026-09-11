@@ -71,7 +71,9 @@ class Brain:
                 mid = (self.s.get("ai") or {}).get("model") or "jarvis"
                 return f"Grok ({mid})"
             if provider in ("openai", "xai", "ollama"):
-                return "Cloud/API"
+                if provider == "ollama":
+                    return "Ollama"
+                return "Needs API key (Settings)"
             found = self.models.list_installed()
             if found:
                 return f"Model on disk ({found[0]}) — click Load"
@@ -82,8 +84,13 @@ class Brain:
     def ensure_local_model(self) -> str:
         if self.engine.ready and self.engine.model_path:
             return f"Already loaded: {self.engine.model_path.name}"
+        GROK_IDS = {
+            "fast", "jarvis", "sharp", "grok", "grok-4.3", "grok-4.5", "grok-4.6",
+        }
         ai = self.s.get("ai") or {}
         model_id = ai.get("local_model_id") or "tinyllama-1.1b-q4"
+        if (model_id or "").lower() in GROK_IDS:
+            model_id = "tinyllama-1.1b-q4"
         custom = (ai.get("local_model_path") or "").strip()
         path = self.models.resolve(model_id, custom or None)
         if not path:
@@ -123,9 +130,11 @@ class Brain:
     def download_model(self, model_id: str | None = None, progress_cb=None) -> str:
         ai = self.s.get("ai") or {}
         mid = model_id or ai.get("local_model_id") or probe()["recommended_model_id"]
+        grok_ids = {"fast", "jarvis", "sharp", "grok", "grok-4.3", "grok-4.5", "grok-4.6"}
+        if (mid or "").lower() in grok_ids:
+            mid = probe()["recommended_model_id"]
         path = self.models.download(mid, progress_cb=progress_cb)
         ai["local_model_id"] = mid
-        ai["provider"] = "local"
         self.s["ai"] = ai
         return f"Downloaded {path.name}. Loading…"
 
@@ -270,8 +279,8 @@ class Brain:
                 return fallback
 
         return (
-            "I'm up. Paste an xAI API key in Settings for fast Grok chat, "
-            "or Load a local model. Commands still work: open Spotify, find a folder, remember …"
+            "Yes — I'm running. Chat needs an xAI key in Settings, or Download local model. "
+            "I can still open apps, find folders, and remember things without that."
         )
 
     def _greeting_reply(self) -> str:
