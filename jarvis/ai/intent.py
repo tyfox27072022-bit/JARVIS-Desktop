@@ -271,21 +271,67 @@ class IntentRouter:
         return None
 
     def _use_pc(self, raw: str, low: str) -> str | None:
+        pc = self.b.pc
         m = re.match(r"^(?:close|quit|kill|exit)\s+(.+)$", low)
         if m:
-            return self.b.pc.close_app(m.group(1).strip())
+            return pc.close_app(m.group(1).strip())
         if low in {"volume up", "turn it up", "louder"}:
-            return self.b.pc.volume("up")
+            return pc.volume("up")
         if low in {"volume down", "quieter", "turn it down"}:
-            return self.b.pc.volume("down")
+            return pc.volume("down")
         if low in {"mute", "unmute", "mute volume"}:
-            return self.b.pc.volume("mute")
-        m = re.match(r"^(?:type|write this|paste)\s+(.+)$", raw, re.I)
+            return pc.volume("mute")
+        if low in {"lock", "lock pc", "lock my pc", "lock the computer", "lock windows"}:
+            return pc.lock()
+        if low in {"sleep", "sleep pc", "put pc to sleep", "sleep the computer"}:
+            return pc.sleep_pc()
+        if low in {"shut down now", "shutdown now", "turn off now"}:
+            return pc.shutdown(False)
+        if low in {"restart now", "reboot now"}:
+            return pc.shutdown(True)
+        if low in {"shut down", "shutdown", "shut down my pc", "turn off my pc", "turn off the computer"}:
+            return "If you mean it, say: shut down now"
+        if low in {"restart", "restart my pc", "reboot"}:
+            return "If you mean it, say: restart now"
+        if low in {"show desktop", "go to desktop", "minimise all", "minimize all"}:
+            return pc.show_desktop() or "Desktop."
+        if low in {"switch window", "alt tab", "next window"}:
+            return pc.switch_window() or "Switched window."
+        if low in {"play", "pause", "play pause", "resume music"}:
+            return pc.media("play")
+        if low in {"next song", "next track", "skip"}:
+            return pc.media("next")
+        if low in {"previous song", "previous track", "last song"}:
+            return pc.media("prev")
+        if low in {"copy", "copy that"}:
+            return pc.copy() or "Copied."
+        if low in {"paste", "paste that"}:
+            return pc.paste() or "Pasted."
+        if low in {"select all"}:
+            return pc.select_all() or "Selected all."
+        if low in {"undo"}:
+            return pc.undo() or "Undo."
+        if low in {"screenshot", "take a screenshot", "capture screen"}:
+            return pc.screenshot_desktop()
+        if low in {"scroll down", "page down"}:
+            return pc.scroll("down")
+        if low in {"scroll up", "page up"}:
+            return pc.scroll("up")
+        if low in {"click", "left click"}:
+            return pc.click()
+        if low in {"double click"}:
+            if py := getattr(pc, "click", None):
+                pc.click()
+                return pc.click()
+        m = re.match(r"^(?:type|write this)\s+(.+)$", raw, re.I)
         if m and not re.search(r"\b(email|essay|script|program|code)\b", low):
-            return self.b.pc.type_text(m.group(1).strip())
+            return pc.type_text(m.group(1).strip())
         m = re.match(r"^press\s+(.+)$", low)
         if m:
-            return self.b.pc.press(m.group(1).strip())
+            return pc.press(m.group(1).strip())
+        m = re.match(r"^click at\s+(\d+)\s*[x,]\s*(\d+)$", low)
+        if m:
+            return pc.click(int(m.group(1)), int(m.group(2)))
         return None
 
     def _time(self, low: str) -> str | None:
@@ -331,11 +377,11 @@ class IntentRouter:
             except Exception:
                 pass
             return self.b.pc.overview()
-        if "desktop" in low and any(w in low for w in ("list", "show", "what's", "whats", "on my")):
+        if low in {"list desktop", "list my desktop"} or ("on my desktop" in low):
             return self.b.pc.list_folder(str(Path.home() / "Desktop"))
-        if "download" in low and any(w in low for w in ("list", "show", "what's", "whats", "in")):
+        if "download" in low and any(w in low for w in ("list", "what's", "whats", "in")):
             return self.b.pc.list_folder(str(Path.home() / "Downloads"))
-        if "document" in low and any(w in low for w in ("list", "show", "what's", "whats", "in")):
+        if "document" in low and any(w in low for w in ("list", "what's", "whats", "in")):
             return self.b.pc.list_folder(str(Path.home() / "Documents"))
 
         m = re.search(r"(?:called|named|for one called)\s+(.+)$", raw, re.I)

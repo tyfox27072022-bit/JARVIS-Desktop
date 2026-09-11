@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 import webbrowser
@@ -258,9 +259,100 @@ class PCController:
             return "Keyboard control disabled."
         if pyautogui is None:
             return "pyautogui not installed."
-        pyautogui.press(key)
+        keys = [k.strip() for k in re.split(r"[+\s]+", key.lower()) if k.strip()]
+        if len(keys) > 1:
+            pyautogui.hotkey(*keys)
+        else:
+            pyautogui.press(key)
         self._log(f"Pressed key: {key}")
         return f"Pressed {key}."
+
+    def hotkey(self, *keys: str) -> str:
+        if not self._perm("allow_keyboard"):
+            return "Keyboard control disabled."
+        if pyautogui is None:
+            return "pyautogui not installed."
+        pyautogui.hotkey(*keys)
+        self._log("Hotkey " + "+".join(keys))
+        return "Done."
+
+    def lock(self) -> str:
+        if sys.platform != "win32":
+            return "Lock is Windows-only."
+        subprocess.Popen(["rundll32.exe", "user32.dll,LockWorkStation"])
+        self._log("Locked PC")
+        return "Locking the PC."
+
+    def sleep_pc(self) -> str:
+        if sys.platform != "win32":
+            return "Sleep is Windows-only."
+        subprocess.Popen(
+            ["powershell", "-NoProfile", "-Command", "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend',$false,$false)"],
+        )
+        self._log("Sleep PC")
+        return "Putting the PC to sleep."
+
+    def shutdown(self, restart: bool = False) -> str:
+        if sys.platform != "win32":
+            return "Power control is Windows-only."
+        args = ["shutdown", "/r" if restart else "/s", "/t", "5"]
+        subprocess.Popen(args)
+        self._log("Restart" if restart else "Shutdown")
+        return "Restarting in 5 seconds." if restart else "Shutting down in 5 seconds. Open cmd and run shutdown /a if you didn't mean it."
+
+    def show_desktop(self) -> str:
+        return self.hotkey("win", "d")
+
+    def switch_window(self) -> str:
+        return self.hotkey("alt", "tab")
+
+    def media(self, action: str) -> str:
+        if pyautogui is None:
+            return "Need pyautogui for media keys."
+        key = {
+            "play": "playpause",
+            "pause": "playpause",
+            "next": "nexttrack",
+            "previous": "prevtrack",
+            "prev": "prevtrack",
+            "stop": "stop",
+        }.get((action or "").lower())
+        if not key:
+            return "Say play, pause, next, or previous."
+        pyautogui.press(key)
+        self._log(f"Media {action}")
+        return f"Media {action}."
+
+    def copy(self) -> str:
+        return self.hotkey("ctrl", "c")
+
+    def paste(self) -> str:
+        return self.hotkey("ctrl", "v")
+
+    def select_all(self) -> str:
+        return self.hotkey("ctrl", "a")
+
+    def undo(self) -> str:
+        return self.hotkey("ctrl", "z")
+
+    def screenshot_desktop(self) -> str:
+        dest = Path.home() / "Desktop" / "jarvis_screenshot.png"
+        try:
+            self.screenshot(dest)
+        except Exception as e:
+            if sys.platform == "win32":
+                return self.hotkey("win", "shift", "s")
+            return str(e)
+        return f"Screenshot saved to {dest}"
+
+    def scroll(self, direction: str = "down") -> str:
+        if not self._perm("allow_mouse"):
+            return "Mouse control disabled."
+        if pyautogui is None:
+            return "pyautogui not installed."
+        amt = -400 if direction == "down" else 400
+        pyautogui.scroll(amt)
+        return f"Scrolled {direction}."
 
     def system_summary(self) -> dict:
         disk_path = "C:\\" if sys.platform == "win32" else "/"
