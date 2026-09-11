@@ -252,9 +252,19 @@ class Brain:
             self._push(message, reply)
             return reply
         if low in ("how are you", "how're you", "you good", "you alright", "how r u"):
-            reply = "I'm good, Ty. What do you need?"
+            reply = "Yeah, all good. You?"
             self._push(message, reply)
             return reply
+
+        if self._needs_online(message):
+            try:
+                hit = self.web.answer(message, open_browser=True)
+                if hit:
+                    self._push(message, hit)
+                    return hit
+            except Exception as e:
+                if self.audit:
+                    self.audit.log(f"auto web: {e}")
 
         env_key = (os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY") or "").strip()
         if env_key:
@@ -390,6 +400,25 @@ class Brain:
         if any(b in low for b in bad):
             return True
         if text.lower().startswith("to jarvis"):
+            return True
+        return False
+
+    def _needs_online(self, message: str) -> bool:
+        low = (message or "").lower()
+        if re.match(r"^(hi|hey|hello|thanks|open |close |run |remember |type |press )", low):
+            return False
+        if any(
+            w in low
+            for w in (
+                "google", "look up", "look it up", "look online", "search the web",
+                "latest", "news", "price", "current", "today", "who won", "score",
+                "online", "wikipedia",
+            )
+        ):
+            return True
+        if "?" in message:
+            return True
+        if re.search(r"\b(who|what|when|where|why|how|which)\b", low) and len(low.split()) > 2:
             return True
         return False
 

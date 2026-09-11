@@ -386,12 +386,24 @@ class IntentRouter:
     def _search(self, raw: str, low: str) -> str | None:
         if low in {
             "search the web", "search web", "search the we", "search internet",
-            "search online", "web search",
+            "search online", "web search", "look online", "look it up", "google it",
+            "google that", "search that",
         }:
+            hist = getattr(self.b, "history", None) or []
+            prev = ""
+            for turn in reversed(hist):
+                if turn.get("role") == "user" and turn.get("content"):
+                    prev = turn["content"]
+                    break
+            if prev:
+                try:
+                    return self.b.web.answer(prev, open_browser=True)
+                except Exception as e:
+                    return f"Search didn't come back: {e}"
             return "What should I search for?"
         m = re.match(
             r"^(?:search(?:\s+the)?(?:\s+web|\s+we|\s+internet|\s+online)?(?:\s+for)?|"
-            r"look\s*up|lookup|google|research|browse)\s+(.+)$",
+            r"look\s*up|lookup|look online for|google|research|browse)\s+(.+)$",
             raw,
             re.I,
         )
@@ -409,7 +421,7 @@ class IntentRouter:
         if q.lower().startswith("my file"):
             return None
         try:
-            return self.b.web.answer(q)
+            return self.b.web.answer(q, open_browser=True)
         except Exception as e:
             return f"Search didn't come back: {e}"
 

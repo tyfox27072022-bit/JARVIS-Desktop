@@ -51,6 +51,7 @@ def handle(brain, raw: str) -> str | None:
         _compare,
         _explain,
         _define,
+        _make,
     ):
         hit = fn(brain, raw, low)
         if hit:
@@ -316,3 +317,60 @@ def _define(brain, raw, low):
         return brain.web.answer("what is " + topic, open_browser=False)
     except Exception:
         return None
+
+
+def _desktop_write(name: str, content: str) -> Path:
+    dest = Path.home() / "Desktop"
+    dest.mkdir(parents=True, exist_ok=True)
+    path = dest / name
+    path.write_text(content, encoding="utf-8")
+    try:
+        if os.name == "nt":
+            os.startfile(str(path))  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    return path
+
+
+def _make(brain, raw, low):
+    m = re.match(r"^(?:make|create|build|put together)\s+(?:me\s+)?(?:an?\s+)?(.+)$", raw, re.I)
+    if not m:
+        return None
+    what = m.group(1).strip()
+    wlow = what.lower()
+    if re.search(r"\b(image|picture|photo|art|illustration)\b", wlow):
+        return None
+    if re.search(r"\b(script|program|function|python|javascript|html page|code)\b", wlow):
+        return None
+    if wlow.startswith("folder"):
+        name = re.sub(r"^folder\s*(?:called|named)?\s*", "", what, flags=re.I).strip() or "JARVIS"
+        name = re.sub(r"[^\w \-]+", "", name)[:40] or "JARVIS"
+        p = Path.home() / "Desktop" / name
+        p.mkdir(parents=True, exist_ok=True)
+        return f"Made the folder {p}"
+    facts = ""
+    topic = re.sub(r"^(?:a |an |the )", "", what, flags=re.I)
+    try:
+        facts = brain.web.answer(topic, open_browser=False) or ""
+    except Exception:
+        facts = ""
+    llm = _llm(brain, "Make the thing they asked for. Complete, usable, no preamble.", what)
+    body = llm or facts or what
+    slug = re.sub(r"[^a-z0-9]+", "_", topic.lower())[:32] or "jarvis"
+    if "list" in wlow:
+        path = _desktop_write(f"{slug}.txt", body if body.startswith("•") or "\n-" in body else "• " + "\n• ".join(
+            [ln.strip(" -•") for ln in body.split("\n") if ln.strip()][:20] or [topic]
+        ))
+        return f"Made the list and put it on your Desktop:\n{path}\n\n{body[:800]}"
+    if any(k in wlow for k in ("website", "web page", "webpage", "landing")):
+        html = (
+            "<!DOCTYPE html><html><head><meta charset=utf-8>"
+            f"<title>{topic}</title>"
+            "<style>body{font-family:sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem}</style>"
+            f"</head><body><h1>{topic}</h1><p>{body[:800]}</p></body></html>"
+        )
+        path = _desktop_write(f"{slug}.html", html)
+        return f"Made a page and opened it:\n{path}"
+    path = _desktop_write(f"{slug}.txt", f"{topic}\n\n{body[:4000]}")
+    return f"Made it and saved it on your Desktop:\n{path}"
+
