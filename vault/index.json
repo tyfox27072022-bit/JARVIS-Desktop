@@ -1,0 +1,58 @@
+[
+  {
+    "name": "sample_test.gpc",
+    "game": "Fortnite",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Fortnite/sample_test.gpc",
+    "modified": "2026-08-28T14:12:42",
+    "size": 37
+  },
+  {
+    "name": "sample_test_20260828_164448.gpc",
+    "game": "Fortnite",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Fortnite/sample_test_20260828_164448.gpc",
+    "modified": "2026-08-28T16:44:48",
+    "size": 37
+  },
+  {
+    "name": "sample_test_20260828_230740.gpc",
+    "game": "Fortnite",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Fortnite/sample_test_20260828_230740.gpc",
+    "modified": "2026-08-28T23:07:41",
+    "size": 37
+  },
+  {
+    "name": "sample_test_20260910_005032.gpc",
+    "game": "Fortnite",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Fortnite/sample_test_20260910_005032.gpc",
+    "modified": "2026-09-10T00:50:32",
+    "size": 37
+  },
+  {
+    "name": "sample_test_20260910_005044.gpc",
+    "game": "Fortnite",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Fortnite/sample_test_20260910_005044.gpc",
+    "modified": "2026-09-10T00:50:44",
+    "size": 37
+  },
+  {
+    "name": "sample_test_20260910_005056.gpc",
+    "game": "Fortnite",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Fortnite/sample_test_20260910_005056.gpc",
+    "modified": "2026-09-10T00:50:56",
+    "size": 37
+  },
+  {
+    "name": "sample_test_20260910_005201.gpc",
+    "game": "Fortnite",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Fortnite/sample_test_20260910_005201.gpc",
+    "modified": "2026-09-10T00:52:02",
+    "size": 37
+  },
+  {
+    "name": "sample_test.gpc",
+    "game": "Unknown Game",
+    "path": "/home/workdir/artifacts/JARVIS_v2/vault/scripts/Unknown Game/sample_test.gpc",
+    "modified": "2026-09-10T00:52:01",
+    "size": 37
+  }
+]

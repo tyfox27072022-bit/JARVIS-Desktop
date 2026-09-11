@@ -1,0 +1,80 @@
+{
+  "user_name": "Ty",
+  "assistant_name": "JARVIS",
+  "personality": "Talk like a real person. Intelligent, calm, helpful, a little witty. British-assistant manner: composed, not stiff. Use contractions. Never sound like a helpdesk script or a list of capabilities.",
+  "ai": {
+    "provider": "xai",
+    "local_model_id": "tinyllama-1.1b-q4",
+    "local_model_path": "",
+    "n_ctx": 2048,
+    "n_threads": 0,
+    "temperature": 0.5,
+    "max_tokens": 700,
+    "api_base": "https://api.x.ai/v1",
+    "api_key": "",
+    "model": "jarvis",
+    "n_gpu_layers": 0,
+    "max_agent_steps": 6
+  },
+  "voice": {
+    "enabled": false,
+    "rate": 0,
+    "volume": 1.0,
+    "push_to_talk": true
+  },
+  "pc": {
+    "allow_mouse": true,
+    "allow_keyboard": true,
+    "allow_screen": true,
+    "allow_apps": true,
+    "allow_files": true,
+    "allow_shell": false,
+    "allow_downloads": false,
+    "allowed_apps": {
+      "notepad": "notepad.exe",
+      "calculator": "calc.exe",
+      "paint": "mspaint.exe",
+      "explorer": "explorer.exe",
+      "discord": "discord:",
+      "chrome": "chrome.exe",
+      "edge": "msedge.exe",
+      "spotify": "spotify:",
+      "steam": "steam.exe"
+    },
+    "trusted_paths": []
+  },
+  "security": {
+    "require_confirmation_for_delete": true,
+    "require_confirmation_for_shell": true,
+    "require_confirmation_for_system_changes": true,
+    "audit_log": true
+  },
+  "vault": {
+    "root": "vault/scripts",
+    "allowed_extensions": [".gpc", ".txt", ".md", ".json", ".py", ".js", ".cs"]
+  },
+  "discord": {
+    "enabled": false,
+    "bot_token": "",
+    "server_id": "",
+    "ticket_category_id": "",
+    "vault_role_id": "",
+    "staff_role_id": "",
+    "dev_role_id": "",
+    "admin_role_id": "",
+    "staff_inactivity_minutes": 60,
+    "customer_followup_minutes": 10,
+    "opening_message": "Hi, I'm JARVIS.",
+    "purchase_url": "",
+    "purchase_info": ""
+  },
+  "phone": {
+    "enabled": false,
+    "bind": "127.0.0.1",
+    "port": 8765,
+    "auth_token": ""
+  },
+  "support": {
+    "prefer_short_answers": false
+  }
+}
