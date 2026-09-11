@@ -67,10 +67,19 @@ class IntentRouter:
 
         if low in {"help", "what can you do", "commands"}:
             return (
-                "I can open apps, find and open files on this PC, list Desktop/Downloads/Documents, "
-                "search the web, remember things, tell the time anywhere, and chat. "
-                "Try: search the web for … · find file card v · list my desktop · open spotify"
+                "Same jobs as ChatGPT — free, on this PC.\n"
+                "Write emails, essays, stories. Translate. Summarise links. Explain. Plan. "
+                "Brainstorm. Compare. Code in lots of languages. Search the web. Draw an image. "
+                "Open apps, find files, remember how you talk.\n"
+                "Try: write an email about … · translate to Spanish hello · summarise https://… · "
+                "draw an image of a red car · write a python script that … · send that file"
             )
+
+        from jarvis.ai.jobs import handle as jobs_handle
+
+        job = jobs_handle(self.b, raw)
+        if job:
+            return job
 
         if low in {
             "how do i talk", "what's my style", "whats my style",

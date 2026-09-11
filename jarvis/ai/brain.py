@@ -322,7 +322,16 @@ class Brain:
                     reply = self._run_tools_in_reply(reply or "")
                 reply = (reply or "").strip() or "I'm here. Say that another way?"
                 if self._junk_reply(reply):
-                    reply = self._sensible_fallback(message)
+                    try:
+                        from jarvis.ai.jobs import handle as jobs_handle
+
+                        job = jobs_handle(self, message)
+                        if job:
+                            reply = job
+                        else:
+                            reply = self._sensible_fallback(message)
+                    except Exception:
+                        reply = self._sensible_fallback(message)
                 try:
                     reply = self.memory.mirror_reply(reply)
                 except Exception:
