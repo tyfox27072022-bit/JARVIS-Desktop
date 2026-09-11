@@ -72,6 +72,32 @@ class IntentRouter:
                 "Try: search the web for … · find file card v · list my desktop · open spotify"
             )
 
+        if low in {
+            "what do you know about me", "what have you learned",
+            "what do you remember about me", "what do you know",
+        }:
+            return self.b.memory.about_user()
+
+        named = re.match(r"^(?:my name is|call me)\s+([a-zA-Z][\w\-']{1,30})$", raw, re.I)
+        if named:
+            name = named.group(1).strip().title()
+            self.b.s["user_name"] = name
+            self.b.memory.remember(f"Name is {name}", "facts")
+            return f"Alright, {name}. I'll remember."
+
+        from jarvis.ai.learn import extract, skip_message
+
+        if not skip_message(raw):
+            hits = extract(raw)
+            explicit = [h for h in hits if h[0] != "notes"]
+            if explicit:
+                kept = []
+                for cat, text in explicit:
+                    if not self.b.memory.already_has(text):
+                        self.b.memory.remember(text, cat)
+                    kept.append(text)
+                return "Got it — I'll remember that. " + "; ".join(kept)
+
         if not any(w in low for w in ("web", "google", "internet", "online", "search the we")):
             files = self._files(raw, low)
             if files:

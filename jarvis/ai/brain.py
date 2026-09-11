@@ -58,6 +58,7 @@ class Brain:
         )
         self._autoload_attempted = False
         self.intents = IntentRouter(self)
+        self.load_history()
 
     @property
     def mode_label(self) -> str:
@@ -431,9 +432,37 @@ class Brain:
         try:
             self.history.append({"role": "user", "content": user})
             self.history.append({"role": "assistant", "content": assistant})
-            self.history = self.history[-16:]
+            self.history = self.history[-24:]
+            self._save_history()
+            learned = self.memory.learn_from_turn(user, assistant)
+            if learned and assistant and "__CLEAR" not in assistant:
+                pass
         except Exception:
-            self.history = []
+            self.history = self.history[-24:] if getattr(self, "history", None) else []
+
+    def _save_history(self):
+        try:
+            from jarvis.paths import DATA
+            import json
+
+            p = DATA / "conversation.json"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(self.history, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
+    def load_history(self):
+        try:
+            from jarvis.paths import DATA
+            import json
+
+            p = DATA / "conversation.json"
+            if p.exists():
+                data = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(data, list):
+                    self.history = data[-24:]
+        except Exception:
+            pass
 
     def _local_commands(self, message: str) -> str | None:
         low = message.lower().strip()

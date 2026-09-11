@@ -75,10 +75,56 @@ class MemoryStore:
         self.save()
         return entry
 
-    def remember(self, text: str, category: str = "notes") -> dict:
-        if category not in self.data:
-            category = "notes"
-        return self._add(category, text)
+    def already_has(self, text: str) -> bool:
+        needle = (text or "").strip().lower()
+        if not needle:
+            return True
+        for items in self.data.values():
+            for item in items:
+                if isinstance(item, dict) and (item.get("text") or "").strip().lower() == needle:
+                    return True
+        return False
+
+    def learn_from_turn(self, user_text: str, assistant_text: str = "") -> list[str]:
+        from jarvis.ai.learn import extract, skip_message
+
+        learned = []
+        if not skip_message(user_text):
+            hits = extract(user_text)
+            if not hits and len((user_text or "").strip()) > 24 and not user_text.strip().endswith("?"):
+                hits = [("notes", user_text.strip()[:200])]
+            for cat, text in hits:
+                if self.already_has(text):
+                    continue
+                self.remember(text, cat)
+                learned.append(text)
+            snippets = self.data.setdefault("conversation_snippets", [])
+            snippets.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "text": user_text.strip()[:400],
+                    "reply": (assistant_text or "")[:400],
+                    "created": datetime.now().isoformat(timespec="seconds"),
+                }
+            )
+            self.data["conversation_snippets"] = snippets[-80:]
+            self.save()
+            try:
+                recent = [s.get("text", "") for s in self.data["conversation_snippets"][-12:]]
+                self.learn_style_from_messages(recent)
+            except Exception:
+                pass
+        return learned
+
+    def about_user(self) -> str:
+        items = []
+        for cat in ("facts", "preferences", "instructions", "notes"):
+            for item in self.data.get(cat, [])[-20:]:
+                if isinstance(item, dict) and item.get("text"):
+                    items.append(f"- ({cat}) {item['text']}")
+        if not items:
+            return "I haven't stored anything about you yet. Tell me things — I'll keep them."
+        return "Here's what I've learned:\n" + "\n".join(items)
 
     def add_instruction(self, text: str) -> dict:
         return self._add("instructions", text)
