@@ -5,7 +5,10 @@ import sys
 import webbrowser
 from pathlib import Path
 
-import psutil
+try:
+    import psutil
+except Exception:
+    psutil = None
 
 try:
     import pyautogui
@@ -359,6 +362,8 @@ class PCController:
 
     def system_summary(self) -> dict:
         disk_path = "C:\\" if sys.platform == "win32" else "/"
+        if psutil is None:
+            return {"cpu_percent": "?", "ram_percent": "?", "disk_percent": "?"}
         try:
             disk = psutil.disk_usage(disk_path).percent
         except Exception:

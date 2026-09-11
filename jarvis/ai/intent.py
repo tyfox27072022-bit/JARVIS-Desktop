@@ -88,18 +88,21 @@ class IntentRouter:
         if low in {"help", "what can you do", "commands"}:
             return (
                 "Same jobs as ChatGPT — free, on this PC.\n"
-                "Write emails, essays, stories. Translate. Summarise links. Explain. Plan. "
-                "Brainstorm. Compare. Code in lots of languages. Search the web. Draw an image. "
-                "Open apps, find files, remember how you talk.\n"
-                "Try: write an email about … · translate to Spanish hello · summarise https://… · "
-                "draw an image of a red car · write a python script that … · send that file"
+                "Order files, find stuff, open apps, write, translate, search, code, images, reminders.\n"
+                "Try: tidy downloads · organise desktop · undo sort · find duplicates in downloads · "
+                "look in downloads for rust · 50 usd to gbp · remind me to text mum · make a password"
             )
 
         from jarvis.ai.jobs import handle as jobs_handle
+        from jarvis.ai.extras import handle as extras_handle
 
         fb = self._feedback(raw, low)
         if fb:
             return fb
+
+        extra = extras_handle(self.b, raw)
+        if extra:
+            return extra
 
         job = jobs_handle(self.b, raw)
         if job:
@@ -171,6 +174,29 @@ class IntentRouter:
             s = self.b.pc.system_summary()
             return f"CPU {s['cpu_percent']}% · RAM {s['ram_percent']}% · Disk {s.get('disk_percent')}%"
 
+        if low in {"undo sort", "undo organise", "undo organize", "put files back"}:
+            from jarvis.pc.organize import undo_last
+
+            return undo_last(audit=self.b.audit)
+
+        if re.search(r"\b(duplicates?|duplicate files)\b", low):
+            from jarvis.pc.organize import find_duplicates
+
+            folder = Path.home() / "Downloads"
+            if "desktop" in low:
+                folder = Path.home() / "Desktop"
+            elif "document" in low:
+                folder = Path.home() / "Documents"
+            return find_duplicates(folder)
+
+        if re.search(r"\b(big files|large files|biggest files|what's taking space)\b", low):
+            from jarvis.pc.organize import find_large
+
+            folder = Path.home() / "Downloads"
+            if "desktop" in low:
+                folder = Path.home() / "Desktop"
+            return find_large(folder)
+
         if self._wants_organize(low):
             from jarvis.pc.organize import organize_folder
 
@@ -180,7 +206,8 @@ class IntentRouter:
                 folder = home / "Desktop"
             elif "document" in low:
                 folder = home / "Documents"
-            return organize_folder(folder, audit=self.b.audit)
+            by = "date" if "date" in low or "by date" in low else "type"
+            return organize_folder(folder, audit=self.b.audit, by=by)
 
         coded = self._code(raw, low)
         if coded:
@@ -470,9 +497,19 @@ class IntentRouter:
         return self.b.pc.open_app(target)
 
     def _wants_organize(self, low: str) -> bool:
-        if low in {"order my files", "sort my files", "organise my files", "organize my files", "tidy my files"}:
+        if low in {
+            "order my files", "sort my files", "organise my files", "organize my files",
+            "tidy my files", "tidy downloads", "tidy my downloads", "organise downloads",
+            "organize downloads", "clean downloads", "tidy desktop", "organise desktop",
+            "organize desktop", "clean desktop", "sort downloads", "sort desktop",
+        }:
             return True
-        return bool(re.search(r"(?:order|sort|organise|organize|tidy)\s+(?:my\s+)?(?:files|folder|downloads|desktop)", low))
+        return bool(
+            re.search(
+                r"(?:order|sort|organise|organize|tidy|clean)\s+(?:my\s+)?(?:files|folder|downloads|desktop|documents)",
+                low,
+            )
+        )
 
     def _search(self, raw: str, low: str) -> str | None:
         if low in {
