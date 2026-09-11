@@ -231,7 +231,8 @@ class MainWindow(QMainWindow):
         hint = QLabel(
             "JARVIS installs its own local brain on first run. No API keys.\n"
             "Index a folder if you want it to learn files on this PC.\n"
-            "Discord is only for talking from your phone — optional."
+            "Discord is only for talking from your phone — optional.\n\n"
+            "Made and created by ty_fox07"
         )
         hint.setWordWrap(True)
         form.addRow(hint)
