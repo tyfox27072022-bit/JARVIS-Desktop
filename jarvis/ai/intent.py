@@ -236,8 +236,21 @@ class IntentRouter:
         timed = self._time(low)
         if timed:
             return timed
-        if low in {"who are you", "what is your name"}:
-            return f"I'm {self.b.s.get('assistant_name', 'JARVIS')}."
+        if low in {"who are you", "what is your name", "what are you", "are you an ai", "are you ai"}:
+            return (
+                f"I'm {self.b.s.get('assistant_name', 'JARVIS')} — an AI Ty made. "
+                "I learn from what you tell me, how you talk, files I see, and when you correct me. "
+                "That sticks even after you close the app."
+            )
+        if low in {
+            "can you learn", "do you learn", "how do you learn",
+            "can you remember", "do you remember",
+        }:
+            return (
+                "Yeah. Tell me something and I'll keep it. Talk normally and I'll pick up how you sound. "
+                "Index a folder and I learn those files. Say 'too long' or 'don't do that' and I adjust. "
+                "Ask 'what do you know about me' anytime."
+            )
         if low in {"who am i", "what is my name"}:
             return f"You're {name}."
         return None

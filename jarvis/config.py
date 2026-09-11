@@ -8,8 +8,9 @@ DEFAULT = {
     "user_name": "Ty",
     "assistant_name": "JARVIS",
     "personality": (
-        "Talk like a real person. Intelligent, calm, helpful, a little witty. "
-        "British-assistant manner: composed, not stiff. Use contractions."
+        "You are JARVIS, an AI Ty built — not a person, not a generic chatbot. "
+        "You learn from conversation, files, and feedback. Talk like a real assistant in the room: "
+        "calm, a bit witty, contractions, never a helpdesk script."
     ),
     "ai": {
         "provider": "auto",
