@@ -75,11 +75,24 @@ class IntentRouter:
     def __init__(self, brain):
         self.b = brain
 
-    def handle(self, message: str) -> str | None:
+    def handle(self, message: str, depth: int = 0) -> str | None:
         raw = (message or "").strip()
         if not raw:
             return None
         low = raw.lower().strip("!.?")
+
+        if depth == 0:
+            from jarvis.ai.advanced import split_compound
+
+            parts = split_compound(raw)
+            if len(parts) > 1:
+                bits = []
+                for p in parts[:4]:
+                    hit = self.handle(p, depth=1)
+                    if hit:
+                        bits.append(hit)
+                if bits:
+                    return "\n\n".join(bits)
 
         talk = self._smalltalk(low)
         if talk:
@@ -87,18 +100,23 @@ class IntentRouter:
 
         if low in {"help", "what can you do", "commands"}:
             return (
-                "Same jobs as ChatGPT — free, on this PC.\n"
-                "Order files, find stuff, open apps, write, translate, search, code, images, reminders.\n"
-                "Try: tidy downloads · organise desktop · undo sort · find duplicates in downloads · "
-                "look in downloads for rust · 50 usd to gbp · remind me to text mum · make a password"
+                "I'm an AI on this PC. I chain jobs, sort files, research, code, search, control apps.\n"
+                "Try: tidy downloads then find duplicates · research rust · "
+                "look in downloads for rust then open 1 · new project called shop · "
+                "files containing TODO in downloads · 50 usd to gbp · remind me to text mum"
             )
 
+        from jarvis.ai.advanced import handle as advanced_handle
         from jarvis.ai.jobs import handle as jobs_handle
         from jarvis.ai.extras import handle as extras_handle
 
         fb = self._feedback(raw, low)
         if fb:
             return fb
+
+        adv = advanced_handle(self.b, raw)
+        if adv:
+            return adv
 
         extra = extras_handle(self.b, raw)
         if extra:

@@ -59,6 +59,8 @@ class Brain:
         self._autoload_attempted = False
         self.intents = IntentRouter(self)
         self.load_history()
+        self.last_answer = ""
+        self.last_user = ""
 
     @property
     def mode_label(self) -> str:
@@ -484,6 +486,8 @@ class Brain:
 
     def _push(self, user: str, assistant: str):
         try:
+            self.last_user = user
+            self.last_answer = assistant
             self.history.append({"role": "user", "content": user})
             self.history.append({"role": "assistant", "content": assistant})
             self.history = self.history[-80:]
