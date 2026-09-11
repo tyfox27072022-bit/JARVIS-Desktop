@@ -377,8 +377,14 @@ class Brain:
                 return self.pc.find_named(needle[:80])
             except Exception:
                 return "Tell me the file name and I'll look on this PC."
-        if "file" in low or "folder" in low or "order" in low or "organise" in low or "organize" in low:
-            return "Which folder should I tidy — Desktop, Downloads, or something named?"
+        if "?" in message or re.search(r"\b(who|what|when|where|why|how|news|latest|price)\b", message.lower()):
+            try:
+                hit = self.web.answer(message)
+                if hit:
+                    return hit
+            except Exception:
+                pass
+        return "Say that another way — or tell me to search the web for it."
         if "spotify" in low:
             return self.pc.open_app("spotify")
         if any(w in low for w in ("time", "am", "pm", "clock")):

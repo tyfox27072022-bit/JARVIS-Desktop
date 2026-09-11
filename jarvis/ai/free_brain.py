@@ -85,32 +85,9 @@ def try_wiki(message: str) -> str | None:
 
 def try_search(web, message: str) -> str | None:
     try:
-        items = web.search(message, limit=4)
+        return web.answer(message)
     except Exception:
         return None
-    if not items:
-        return None
-    lines = ["Here's what I found:"]
-    for i in items[:3]:
-        title = i.get("title") or ""
-        url = i.get("url") or ""
-        if title:
-            lines.append(f"• {title}")
-            if url:
-                lines.append(f"  {url}")
-    snippet = ""
-    try:
-        url0 = items[0].get("url") or ""
-        if url0.startswith("http"):
-            snippet = web.fetch(url0, max_chars=900)
-    except Exception:
-        snippet = ""
-    if snippet:
-        sentences = re.split(r"(?<=[.!?])\s+", snippet)
-        brief = " ".join(sentences[:2]).strip()
-        if brief:
-            lines.insert(1, brief)
-    return "\n".join(lines)
 
 
 def answer(message: str, web=None) -> str | None:

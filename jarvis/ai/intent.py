@@ -69,12 +69,17 @@ class IntentRouter:
             return (
                 "I can open apps, find and open files on this PC, list Desktop/Downloads/Documents, "
                 "search the web, remember things, tell the time anywhere, and chat. "
-                "Try: find file card v · list my desktop · scan my files · open spotify · what time in New York"
+                "Try: search the web for … · find file card v · list my desktop · open spotify"
             )
 
-        files = self._files(raw, low)
-        if files:
-            return files
+        if not any(w in low for w in ("web", "google", "internet", "online", "search the we")):
+            files = self._files(raw, low)
+            if files:
+                return files
+
+        looked = self._search(raw, low)
+        if looked:
+            return looked
 
         opened = self._open(raw, low)
         if opened:
@@ -102,10 +107,6 @@ class IntentRouter:
             elif "document" in low:
                 folder = home / "Documents"
             return organize_folder(folder, audit=self.b.audit)
-
-        looked = self._search(raw, low)
-        if looked:
-            return looked
 
         coded = self._code(raw, low)
         if coded:
@@ -207,7 +208,7 @@ class IntentRouter:
             return "__CLEAR_CHAT__"
         if low in {
             "scan my files", "index my files", "see my files", "see all my files",
-            "look at my files", "show my files", "list my files",
+            "look at my files", "show my files", "list my files", "search my files",
             "what files do i have", "see the files on my pc", "files on my pc",
         }:
             try:
@@ -268,17 +269,34 @@ class IntentRouter:
         return bool(re.search(r"(?:order|sort|organise|organize|tidy)\s+(?:my\s+)?(?:files|folder|downloads|desktop)", low))
 
     def _search(self, raw: str, low: str) -> str | None:
-        m = re.match(r"^(?:search|look up|lookup|google|research)\s+(.+)$", raw, re.I)
+        if low in {
+            "search the web", "search web", "search the we", "search internet",
+            "search online", "web search",
+        }:
+            return "What should I search for?"
+        m = re.match(
+            r"^(?:search(?:\s+the)?(?:\s+web|\s+we|\s+internet|\s+online)?(?:\s+for)?|"
+            r"look\s*up|lookup|google|research|browse)\s+(.+)$",
+            raw,
+            re.I,
+        )
+        if not m:
+            m = re.search(
+                r"search(?:\s+the)?(?:\s+web|\s+we|\s+internet)?(?:\s+for)\s+(.+)$",
+                raw,
+                re.I,
+            )
         if not m:
             return None
-        q = m.group(1).strip()
+        q = m.group(1).strip().strip("\"'")
+        if not q or q.lower() in {"the web", "web", "the we", "internet", "online"}:
+            return "What should I search for?"
+        if q.lower().startswith("my file"):
+            return None
         try:
-            items = self.b.web.search(q)
+            return self.b.web.answer(q)
         except Exception as e:
             return f"Search didn't come back: {e}"
-        if not items:
-            return "Nothing useful came back."
-        return "Here's what I found:\n" + "\n".join(f"- {i['title']}\n  {i['url']}" for i in items)
 
     def _code(self, raw: str, low: str) -> str | None:
         m = re.match(r"^(?:write|make|create)\s+(?:a\s+)?(?:python\s+)?(?:script|program|file)\s+(?:that\s+|to\s+)?(.+)$", raw, re.I)
