@@ -30,7 +30,6 @@ from jarvis.security import AuditLog
 from jarvis.updates import ImprovementManager
 from jarvis.ui import apply_theme
 from jarvis.vault import VaultLibrary
-from jarvis.voice import VoiceEngine
 from jarvis.web import WebTools
 
 
@@ -79,7 +78,6 @@ class MainWindow(QMainWindow):
         )
         self.pc = PCController(self.settings, self.audit)
         self.web = WebTools()
-        self.voice = VoiceEngine(self.settings.get("voice", {}))
         self.coding = CodingWorkspace(audit=self.audit)
         self.improve = ImprovementManager(audit=self.audit)
         self.brain = Brain(
@@ -156,20 +154,17 @@ class MainWindow(QMainWindow):
         send = QPushButton("Send")
         send.setObjectName("primary")
         send.setDefault(True)
-        speak_btn = QPushButton("Speak")
         shot = QPushButton("Screenshot")
         row = QHBoxLayout()
         row.setSpacing(8)
         row.addWidget(self.input, 1)
         row.addWidget(send)
-        row.addWidget(speak_btn)
         row.addWidget(shot)
         layout.addLayout(head)
         layout.addWidget(self.chat, 1)
         layout.addLayout(row)
         send.clicked.connect(self.send)
         self.input.returnPressed.connect(self.send)
-        speak_btn.clicked.connect(self.listen)
         shot.clicked.connect(self.screenshot)
         hist = getattr(self.brain, "history", None) or []
         if hist:
@@ -253,15 +248,13 @@ class MainWindow(QMainWindow):
         self.s_ctx = QLineEdit(str(ai.get("n_ctx", 2048)))
         self.s_temp = QLineEdit(str(ai.get("temperature", 0.5)))
         self.s_maxtok = QLineEdit(str(ai.get("max_tokens", 512)))
-        self.s_voice = QCheckBox("Speak replies aloud")
-        self.s_voice.setChecked(bool((self.settings.get("voice") or {}).get("enabled")))
+        self.s_discord.setEchoMode(QLineEdit.EchoMode.Password)
         save_btn = QPushButton("Save settings")
         save_btn.setObjectName("primary")
         index_btn = QPushButton("Index a folder on this PC")
         discord_btn = QPushButton("Start Discord (phone DMs)")
         form.addRow("Your name", self.s_user)
         form.addRow("Assistant name", self.s_assistant)
-        form.addRow(self.s_voice)
         form.addRow("Discord bot token (optional)", self.s_discord)
         form.addRow(save_btn)
         form.addRow(index_btn)
@@ -320,18 +313,8 @@ class MainWindow(QMainWindow):
         self.busy = False
         self.status.setText(self.brain.mode_label.upper())
         self._post(self.assistant, answer)
-        if self.voice.enabled or (self.settings.get("voice") or {}).get("enabled"):
-            self.voice.speak(answer)
         self.refresh_memory()
         self.refresh_log()
-
-    def listen(self):
-        try:
-            text = self.voice.listen()
-            self.input.setText(text)
-            self.send()
-        except Exception as e:
-            QMessageBox.warning(self, "Voice", str(e))
 
     def screenshot(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -403,12 +386,9 @@ class MainWindow(QMainWindow):
             self.settings["ai"]["max_tokens"] = int(self.s_maxtok.text().strip() or "512")
         except ValueError:
             self.settings["ai"]["max_tokens"] = 512
-        self.settings.setdefault("voice", {})
-        self.settings["voice"]["enabled"] = self.s_voice.isChecked()
         save(self.settings)
         self.user = self.settings["user_name"]
         self.assistant = self.settings["assistant_name"]
-        self.voice = VoiceEngine(self.settings.get("voice", {}))
         self.brain.s = self.settings
         self.pc.settings = self.settings.get("pc") or {}
         self.status.setText(self.brain.mode_label.upper())
