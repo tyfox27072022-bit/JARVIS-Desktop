@@ -81,6 +81,12 @@ class IntentRouter:
             return None
         low = raw.lower().strip("!.?")
 
+        from jarvis.ai.macros import handle as macros_handle
+
+        mac = macros_handle(self.b, raw)
+        if mac:
+            return mac
+
         if depth == 0:
             from jarvis.ai.advanced import split_compound
 
@@ -100,10 +106,10 @@ class IntentRouter:
 
         if low in {"help", "what can you do", "commands"}:
             return (
-                "I'm an AI on this PC — I plan jobs, not just one-liners.\n"
-                "Try: get my downloads under control · brief me · research rust · "
-                "look in downloads for rust then open 1 · new project called shop · "
-                "open last download · email bob@x.com about Friday · focus chrome"
+                "I'm an AI on this PC — I plan jobs, learn workflows, and read your files.\n"
+                "Try: get my downloads under control · brief me · "
+                "when I say night, do volume down then lock my pc · "
+                "what do my files say about rust · top processes · my ip"
             )
 
         from jarvis.ai.advanced import handle as advanced_handle
@@ -111,6 +117,8 @@ class IntentRouter:
         from jarvis.ai.extras import handle as extras_handle
         from jarvis.ai.pro import handle as pro_handle
         from jarvis.ai.goals import handle as goals_handle
+        from jarvis.ai.rag import handle as rag_handle
+        from jarvis.ai.sysplus import handle as sys_handle
 
         fb = self._feedback(raw, low)
         if fb:
@@ -124,6 +132,14 @@ class IntentRouter:
         pro = pro_handle(self.b, raw)
         if pro:
             return pro
+
+        rag = rag_handle(self.b, raw)
+        if rag:
+            return rag
+
+        sysp = sys_handle(self.b, raw)
+        if sysp:
+            return sysp
 
         adv = advanced_handle(self.b, raw)
         if adv:
