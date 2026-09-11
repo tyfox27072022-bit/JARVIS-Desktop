@@ -31,7 +31,7 @@ class PCController:
     def open_app(self, name: str) -> str:
         if not self._perm("allow_apps"):
             return "App launching is disabled in settings."
-        key = name.lower().strip()
+        key = name.lower().strip().strip("\"'")
         builtins = {
             "notepad": "notepad.exe",
             "calculator": "calc.exe",
@@ -40,6 +40,7 @@ class PCController:
             "explorer": "explorer.exe",
             "discord": "discord:",
             "chrome": "chrome.exe",
+            "google chrome": "chrome.exe",
             "edge": "msedge.exe",
             "firefox": "firefox.exe",
             "spotify": "spotify:",
@@ -48,31 +49,133 @@ class PCController:
             "cmd": "cmd.exe",
             "powershell": "powershell.exe",
             "ms-settings:": "ms-settings:",
+            "word": "winword.exe",
+            "excel": "excel.exe",
+            "powerpoint": "powerpnt.exe",
+            "outlook": "outlook.exe",
+            "teams": "ms-teams.exe",
+            "vscode": "code",
+            "code": "code",
+            "visual studio": "devenv.exe",
+            "whatsapp": "whatsapp:",
+            "telegram": "telegram.exe",
+            "vlc": "vlc.exe",
+            "obs": "obs64.exe",
+            "photos": "ms-photos:",
+            "store": "ms-windows-store:",
+            "clock": "ms-clock:",
+            "camera": "microsoft.windows.camera:",
+            "snip": "ms-screenclip:",
+            "snipping tool": "ms-screenclip:",
+            "zoom": "Zoom.exe",
+            "slack": "slack.exe",
+            "notion": "notion.exe",
+            "epic": "EpicGamesLauncher.exe",
+            "xbox": "xbox:",
         }
         target = self.allowed_apps.get(key) or builtins.get(key)
-        if not target:
-            # Last try: treat the name as a program on PATH / protocol
-            if key.endswith(":") or key.endswith(".exe"):
-                target = key
+        err = None
+        if target:
+            try:
+                self._launch(target)
+                self._log(f"Opened application: {key}")
+                return f"{name} is open."
+            except Exception as e:
+                err = e
+        # Start Menu shortcut
+        lnk = self._find_start_shortcut(key)
+        if lnk:
+            try:
+                os.startfile(str(lnk))  # type: ignore[attr-defined]
+                self._log(f"Opened shortcut: {lnk}")
+                return f"{name} is open."
+            except Exception as e:
+                err = e
+        if sys.platform == "win32":
+            try:
+                subprocess.Popen(f'start "" "{name}"', shell=True)
+                self._log(f"start {name}")
+                return f"{name} is open."
+            except Exception as e:
+                err = e
+        return f"Couldn't open {name}" + (f": {err}" if err else ".")
+
+    def _launch(self, target: str) -> None:
+        if target.startswith("http://") or target.startswith("https://"):
+            webbrowser.open(target)
+            return
+        if target.endswith(":") or target.startswith("ms-"):
+            if sys.platform == "win32":
+                os.startfile(target)  # type: ignore[attr-defined]
             else:
-                target = key if key.endswith(".exe") else f"{key}.exe"
-        try:
-            if target.startswith("http://") or target.startswith("https://"):
                 webbrowser.open(target)
-            elif target.endswith(":") or target.startswith("ms-"):
-                if sys.platform == "win32":
-                    os.startfile(target)  # type: ignore[attr-defined]
-                else:
-                    webbrowser.open(target)
-            else:
-                subprocess.Popen(
-                    [target] if sys.platform != "win32" else target,
-                    shell=sys.platform == "win32",
-                )
-        except Exception as e:
-            return f"Couldn't open {key}: {e}"
-        self._log(f"Opened application: {key}")
-        return f"Opened {key}."
+            return
+        if sys.platform == "win32":
+            subprocess.Popen(target, shell=True)
+        else:
+            subprocess.Popen([target])
+
+    def _find_start_shortcut(self, name: str) -> Path | None:
+        if sys.platform != "win32":
+            return None
+        needle = name.lower()
+        roots = [
+            Path.home() / "AppData/Roaming/Microsoft/Windows/Start Menu/Programs",
+            Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Microsoft/Windows/Start Menu/Programs",
+        ]
+        hits = []
+        for root in roots:
+            if not root.is_dir():
+                continue
+            try:
+                for p in root.rglob("*.lnk"):
+                    if needle in p.stem.lower():
+                        hits.append(p)
+                        if len(hits) >= 8:
+                            break
+            except OSError:
+                continue
+        if not hits:
+            return None
+        hits.sort(key=lambda p: (len(p.stem), p.stem.lower()))
+        return hits[0]
+
+    def close_app(self, name: str) -> str:
+        if not self._perm("allow_apps"):
+            return "App control is disabled."
+        key = name.lower().strip()
+        exe = {
+            "chrome": "chrome.exe",
+            "edge": "msedge.exe",
+            "firefox": "firefox.exe",
+            "notepad": "notepad.exe",
+            "spotify": "Spotify.exe",
+            "discord": "Discord.exe",
+            "steam": "steam.exe",
+            "word": "WINWORD.EXE",
+            "excel": "EXCEL.EXE",
+            "code": "Code.exe",
+            "vscode": "Code.exe",
+        }.get(key, key if key.endswith(".exe") else f"{key}.exe")
+        if sys.platform != "win32":
+            return "Close-app helper is Windows-only."
+        proc = subprocess.run(["taskkill", "/IM", exe, "/F"], capture_output=True, text=True)
+        if proc.returncode == 0:
+            self._log(f"Closed {exe}")
+            return f"Closed {name}."
+        return f"Couldn't close {name} — is it running?"
+
+    def volume(self, action: str) -> str:
+        if pyautogui is None:
+            return "Need pyautogui for volume keys."
+        action = (action or "").lower()
+        key = {"up": "volumeup", "down": "volumedown", "mute": "volumemute"}.get(action)
+        if not key:
+            return "Say volume up, volume down, or mute."
+        for _ in range(4 if action != "mute" else 1):
+            pyautogui.press(key)
+        self._log(f"Volume {action}")
+        return f"Volume {action}."
 
     def open_url(self, url: str) -> str:
         url = url.strip()

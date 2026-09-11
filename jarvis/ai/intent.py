@@ -28,6 +28,26 @@ APPS = {
     "command prompt": "cmd",
     "powershell": "powershell",
     "settings": "ms-settings:",
+    "word": "word",
+    "excel": "excel",
+    "powerpoint": "powerpoint",
+    "outlook": "outlook",
+    "teams": "teams",
+    "vscode": "vscode",
+    "vs code": "vscode",
+    "code": "vscode",
+    "whatsapp": "whatsapp",
+    "telegram": "telegram",
+    "vlc": "vlc",
+    "obs": "obs",
+    "photos": "photos",
+    "zoom": "zoom",
+    "slack": "slack",
+    "notion": "notion",
+    "xbox": "xbox",
+    "clock": "clock",
+    "camera": "camera",
+    "snipping tool": "snipping tool",
 }
 
 SITES = {
@@ -77,6 +97,10 @@ class IntentRouter:
 
         from jarvis.ai.jobs import handle as jobs_handle
 
+        fb = self._feedback(raw, low)
+        if fb:
+            return fb
+
         job = jobs_handle(self.b, raw)
         if job:
             return job
@@ -97,7 +121,7 @@ class IntentRouter:
             name = named.group(1).strip().title()
             self.b.s["user_name"] = name
             self.b.memory.remember(f"Name is {name}", "facts")
-            return f"Alright, {name}. I'll remember."
+            return f"Alright {name}."
 
         from jarvis.ai.learn import extract, skip_message
 
@@ -110,7 +134,7 @@ class IntentRouter:
                     if not self.b.memory.already_has(text):
                         self.b.memory.remember(text, cat)
                     kept.append(text)
-                return "Got it — I'll remember that. " + "; ".join(kept)
+                return "I'll keep that — " + "; ".join(kept).rstrip(".") + "."
 
         if not any(w in low for w in ("web", "google", "internet", "online", "search the we")):
             files = self._files(raw, low)
@@ -124,6 +148,10 @@ class IntentRouter:
         opened = self._open(raw, low)
         if opened:
             return opened
+
+        used = self._use_pc(raw, low)
+        if used:
+            return used
 
         if low in {"wifi", "open wifi"}:
             return self.b.pc.open_wifi()
@@ -178,33 +206,27 @@ class IntentRouter:
     def _smalltalk(self, low: str) -> str | None:
         name = self.b.s.get("user_name", "Ty")
         hour = datetime.now().hour
-        if low in {
-            "hi", "hey", "hello", "yo", "sup", "hiya",
-            "hi jarvis", "hey jarvis", "hello jarvis",
-            "morning", "good morning", "afternoon", "good afternoon",
-            "evening", "good evening",
-        }:
+        if low in {"hi", "hey", "hello", "yo", "sup", "hiya", "hi jarvis", "hey jarvis", "hello jarvis"}:
             if hour < 5 or hour >= 22:
-                return f"Late one, {name}. I'm here."
+                return f"Yeah I'm here, {name}."
             if hour < 12:
-                return f"Morning {name}. What are we doing?"
+                return f"Morning. What's going on?"
             if hour < 18:
-                return f"Afternoon {name}. Fire away."
-            return f"Evening {name}. What's next?"
+                return f"Hey {name}."
+            return f"Evening. What do you need?"
         if low in {"how are you", "how're you", "you good", "you alright", "how r u", "whats up", "what's up"}:
-            return "I'm good. What do you need?"
+            return "Yeah, all good. You?"
         if low in {
             "are you working", "you working", "are you there", "you there",
-            "can you hear me", "test", "testing", "hello?", "you up",
-            "are you up", "still there",
+            "can you hear me", "test", "testing", "you up", "are you up", "still there",
         }:
-            return "Yes. I'm here and working. What do you need?"
+            return "Yep. Still here."
         if low in {"thanks", "thank you", "cheers"}:
-            return "Anytime."
+            return "No worries."
         if "joke" in low:
-            return "A SQL query walks into a bar, walks up to two tables, and asks: “Mind if I join you?”"
+            return "A SQL query walks into a bar, walks up to two tables, and asks if it can join them."
         if low in {"do something", "do anything", "prove it", "work", "do your job"}:
-            return "Name it. Open an app, find a file, look something up, remember a fact — I'll do that."
+            return "Tell me what. I'll open it, find it, write it, or look it up."
         timed = self._time(low)
         if timed:
             return timed
@@ -212,6 +234,58 @@ class IntentRouter:
             return f"I'm {self.b.s.get('assistant_name', 'JARVIS')}."
         if low in {"who am i", "what is my name"}:
             return f"You're {name}."
+        return None
+
+    def _feedback(self, raw: str, low: str) -> str | None:
+        mem = self.b.memory
+        if low in {
+            "good", "nice", "perfect", "that's better", "thats better",
+            "love that", "good job", "well done", "that's good", "thats good",
+            "yes that's it", "better", "nailed it",
+        }:
+            mem.add_instruction("He liked the last reply. Keep that tone and length.")
+            return "Glad that landed."
+        if any(p in low for p in ("too long", "keep it short", "shorter", "too much")):
+            mem.style.setdefault("traits", {})["detail_level"] = "short"
+            mem.save_style()
+            mem.add_instruction("Keep replies short.")
+            return "Alright — I'll keep it short."
+        if any(p in low for p in ("too formal", "more casual", "sound more human", "talk normal", "less robotic")):
+            mem.style.setdefault("traits", {})["tone"] = "casual"
+            mem.style.setdefault("traits", {})["contractions"] = True
+            mem.save_style()
+            mem.add_instruction("Talk casual, like a mate. Not a helpdesk.")
+            return "I'll talk more like you."
+        if any(p in low for p in ("be funnier", "more jokes", "lighten up")):
+            mem.add_instruction("Be a bit funnier.")
+            return "I'll throw a bit more in."
+        if any(p in low for p in ("be serious", "less jokes")):
+            mem.add_instruction("Stay more serious.")
+            return "I'll keep it straight."
+        if low.startswith(("don't ", "dont ", "never ", "stop ")):
+            mem.add_instruction(raw.strip())
+            return "Alright. I won't."
+        if low.startswith("always "):
+            mem.add_instruction(raw.strip())
+            return "I'll do that from now on."
+        return None
+
+    def _use_pc(self, raw: str, low: str) -> str | None:
+        m = re.match(r"^(?:close|quit|kill|exit)\s+(.+)$", low)
+        if m:
+            return self.b.pc.close_app(m.group(1).strip())
+        if low in {"volume up", "turn it up", "louder"}:
+            return self.b.pc.volume("up")
+        if low in {"volume down", "quieter", "turn it down"}:
+            return self.b.pc.volume("down")
+        if low in {"mute", "unmute", "mute volume"}:
+            return self.b.pc.volume("mute")
+        m = re.match(r"^(?:type|write this|paste)\s+(.+)$", raw, re.I)
+        if m and not re.search(r"\b(email|essay|script|program|code)\b", low):
+            return self.b.pc.type_text(m.group(1).strip())
+        m = re.match(r"^press\s+(.+)$", low)
+        if m:
+            return self.b.pc.press(m.group(1).strip())
         return None
 
     def _time(self, low: str) -> str | None:

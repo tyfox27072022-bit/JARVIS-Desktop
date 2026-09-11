@@ -221,8 +221,8 @@ def _write(brain, raw, low):
     if kind == "email":
         return (
             f"Subject: {topic[:70]}\n\n"
-            f"Hi,\n\nJust getting this over to you about {topic}. "
-            f"Let me know if you want anything changed.\n\nCheers,\n{name}"
+            f"Hey,\n\nQuick one about {topic}. "
+            f"Yell if you want it changed.\n\nCheers,\n{name}"
         )
     if kind == "list":
         return "Here's a starter list:\n- " + "\n- ".join(
