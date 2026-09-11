@@ -121,6 +121,12 @@ class IntentRouter:
             name = named.group(1).strip().title()
             self.b.s["user_name"] = name
             self.b.memory.remember(f"Name is {name}", "facts")
+            try:
+                from jarvis.config import save
+
+                save(self.b.s)
+            except Exception:
+                pass
             return f"Alright {name}."
 
         from jarvis.ai.learn import extract, skip_message

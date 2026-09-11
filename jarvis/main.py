@@ -171,10 +171,21 @@ class MainWindow(QMainWindow):
         self.input.returnPressed.connect(self.send)
         speak_btn.clicked.connect(self.listen)
         shot.clicked.connect(self.screenshot)
-        self._post(
-            self.assistant,
-            f"{greeting(self.user)} I'll install my local brain in the background — you can talk now.",
-        )
+        hist = getattr(self.brain, "history", None) or []
+        if hist:
+            for turn in hist[-40:]:
+                role = turn.get("role")
+                text = turn.get("content") or ""
+                if not text:
+                    continue
+                who = self.user if role == "user" else self.assistant
+                self._post(who, text)
+            self._post(self.assistant, "I'm back. Still remember what we talked about.")
+        else:
+            self._post(
+                self.assistant,
+                f"{greeting(self.user)} I'll install my local brain in the background — you can talk now.",
+            )
         return w
 
     def _post(self, who: str, text: str):
@@ -473,6 +484,16 @@ class MainWindow(QMainWindow):
 
     def refresh_log(self):
         self.log_view.setPlainText("\n".join(self.audit.recent(100)) or "(no entries)")
+
+    def closeEvent(self, event):
+        try:
+            self.brain._save_history()
+            self.memory.save()
+            self.memory.save_style()
+            save(self.settings)
+        except Exception:
+            pass
+        event.accept()
 
 
 def main():

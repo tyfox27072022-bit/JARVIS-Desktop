@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
-from jarvis.paths import CONFIG_PATH
+from jarvis.paths import CONFIG_PATH, USER_SETTINGS
 
 DEFAULT = {
     "user_name": "Ty",
@@ -89,19 +89,24 @@ def _merge(base: dict, override: dict) -> dict:
 
 def load() -> dict:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not CONFIG_PATH.exists():
-        save(DEFAULT)
-        return deepcopy(DEFAULT)
-    try:
-        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise ValueError("invalid")
-        return _merge(DEFAULT, data)
-    except Exception:
-        save(DEFAULT)
-        return deepcopy(DEFAULT)
+    data = deepcopy(DEFAULT)
+    for path in (CONFIG_PATH, USER_SETTINGS):
+        if not path.exists():
+            continue
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = _merge(data, loaded)
+        except Exception:
+            pass
+    return data
 
 
 def save(settings: dict) -> None:
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    USER_SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+    USER_SETTINGS.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    try:
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_PATH.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    except Exception:
+        pass

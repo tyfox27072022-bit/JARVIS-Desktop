@@ -485,33 +485,34 @@ class Brain:
         try:
             self.history.append({"role": "user", "content": user})
             self.history.append({"role": "assistant", "content": assistant})
-            self.history = self.history[-24:]
+            self.history = self.history[-80:]
             self._save_history()
             self.memory.learn_from_turn(user, assistant)
         except Exception:
-            self.history = self.history[-24:] if getattr(self, "history", None) else []
+            self.history = self.history[-80:] if getattr(self, "history", None) else []
 
     def _save_history(self):
         try:
-            from jarvis.paths import DATA
+            from jarvis.paths import CONVO_PATH
             import json
 
-            p = DATA / "conversation.json"
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(json.dumps(self.history, indent=2, ensure_ascii=False), encoding="utf-8")
+            CONVO_PATH.parent.mkdir(parents=True, exist_ok=True)
+            CONVO_PATH.write_text(
+                json.dumps(self.history[-80:], indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
         except Exception:
             pass
 
     def load_history(self):
         try:
-            from jarvis.paths import DATA
+            from jarvis.paths import CONVO_PATH
             import json
 
-            p = DATA / "conversation.json"
-            if p.exists():
-                data = json.loads(p.read_text(encoding="utf-8"))
+            if CONVO_PATH.exists():
+                data = json.loads(CONVO_PATH.read_text(encoding="utf-8"))
                 if isinstance(data, list):
-                    self.history = data[-24:]
+                    self.history = data[-80:]
         except Exception:
             pass
 

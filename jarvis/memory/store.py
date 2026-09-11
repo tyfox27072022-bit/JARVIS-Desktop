@@ -75,6 +75,11 @@ class MemoryStore:
         self.save()
         return entry
 
+    def remember(self, text: str, category: str = "notes") -> dict:
+        if category not in self.data:
+            category = "notes"
+        return self._add(category, text)
+
     def already_has(self, text: str) -> bool:
         needle = (text or "").strip().lower()
         if not needle:
