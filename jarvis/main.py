@@ -464,6 +464,7 @@ class MainWindow(QMainWindow):
                 self._discord_bot = TicketBot(
                     self.settings, vault=self.vault, brain=self.brain, audit=self.audit
                 )
+            self.brain.discord_bot = self._discord_bot
             msg = self._discord_bot.start_background()
             QMessageBox.information(self, "Discord", msg + "\nMessage the bot from your phone in a DM.")
             self.audit.log("Discord bot start requested")

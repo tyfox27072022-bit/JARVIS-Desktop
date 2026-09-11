@@ -143,11 +143,12 @@ class IntentRouter:
         if coded:
             return coded
 
-        run = re.match(r"^run\s+([\w.\-]+\.py)\s*$", low)
+        run = re.match(r"^run\s+(.+)$", low)
         if run:
+            target = run.group(1).strip()
             try:
-                out = self.b.coding.run_python(run.group(1))
-                return f"Ran {run.group(1)}:\n{out}"
+                out = self.b.coding.run_file(target)
+                return f"Ran {target}:\n{out}"
             except Exception as e:
                 return f"Couldn't run that: {e}"
 
@@ -330,17 +331,62 @@ class IntentRouter:
             return f"Search didn't come back: {e}"
 
     def _code(self, raw: str, low: str) -> str | None:
-        m = re.match(r"^(?:write|make|create)\s+(?:a\s+)?(?:python\s+)?(?:script|program|file)\s+(?:that\s+|to\s+)?(.+)$", raw, re.I)
-        if not m:
-            return None
-        job = m.group(1).strip()
-        name = "script.py"
-        content = (
-            f'"""JARVIS workspace script for Ty.\n{job}\n"""\n'
-            "def main():\n"
-            f"    print({job!r})\n\n"
-            "if __name__ == '__main__':\n"
-            "    main()\n"
+        sent = self._send(raw, low)
+        if sent:
+            return sent
+        wants = bool(
+            re.search(r"\b(write|code|generate)\b", low)
+            and re.search(
+                r"\b(script|program|code|function|class|page|app|html|css|"
+                r"python|javascript|typescript|java|rust|golang|\bgo\b|c\+\+|csharp|c#|php|ruby|swift|kotlin|sql|lua)\b",
+                low,
+            )
         )
-        path = self.b.coding.create_file(name, content)
-        return f"Wrote {path.name} in the workspace. Say 'run {path.name}' if you want it executed."
+        if not wants:
+            m = re.match(
+                r"^(?:write|make|create)\s+(?:a\s+|an\s+|me\s+)?(?:python\s+)?(?:script|program|file)\s+(?:that\s+|to\s+)?(.+)$",
+                raw,
+                re.I,
+            )
+            if not m:
+                return None
+            job = m.group(1).strip()
+        else:
+            job = raw
+        try:
+            engine = getattr(self.b, "engine", None)
+            path = self.b.coding.write_program(job, language_hint=raw, engine=engine)
+        except Exception as e:
+            return f"Couldn't write that: {e}"
+        preview = ""
+        try:
+            preview = path.read_text(encoding="utf-8", errors="replace")[:500]
+        except Exception:
+            pass
+        return (
+            f"Wrote {path.name} in the workspace.\n"
+            f"Say 'run {path.name}' to execute it, or 'send {path.name}' to drop it on your Desktop.\n\n"
+            f"{preview}"
+        )
+
+    def _send(self, raw: str, low: str) -> str | None:
+        if not re.search(r"\b(send|share|email me|give me the file|drop it on)\b", low):
+            return None
+        if "search" in low or "web" in low:
+            return None
+        m = re.search(r"([\w.\-]+\.[a-zA-Z0-9]{1,8})\b", raw)
+        name = m.group(1) if m else None
+        where = "downloads" if "download" in low else "desktop"
+        try:
+            msg = self.b.coding.send_file(name, where=where)
+        except Exception as e:
+            return f"Couldn't send a file: {e}"
+        bot = getattr(self.b, "discord_bot", None)
+        extra = ""
+        if bot and hasattr(bot, "queue_file"):
+            try:
+                path = self.b.coding.resolve(name)
+                extra = " " + (bot.queue_file(path) or "")
+            except Exception:
+                extra = ""
+        return (msg + extra).strip()

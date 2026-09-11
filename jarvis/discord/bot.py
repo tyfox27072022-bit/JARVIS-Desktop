@@ -41,6 +41,17 @@ class TicketBot:
         self.audit = audit
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
+        self._pending_files: list = []
+        self.last_dm = None
+
+    def queue_file(self, path) -> str:
+        from pathlib import Path
+
+        p = Path(path)
+        if not p.is_file():
+            return ""
+        self._pending_files.append(p)
+        return "Queued for Discord DM as well."
 
     def start_background(self) -> str:
         if not self.logic.enabled:
@@ -104,6 +115,16 @@ class TicketBot:
                     except Exception as e:
                         reply = f"Give me a moment — I hit a snag: {e}"
                 await message.channel.send((reply or "I'm here.")[:1900])
+                for pending in list(self._pending_files):
+                    try:
+                        await message.channel.send(file=discord.File(str(pending)))
+                    except Exception:
+                        await message.channel.send(f"Couldn't attach {pending.name}.")
+                    try:
+                        self._pending_files.remove(pending)
+                    except ValueError:
+                        pass
+                self.last_dm = message.channel.id
                 if self.audit:
                     self.audit.log("Discord DM answered")
                 return
