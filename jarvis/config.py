@@ -13,7 +13,7 @@ DEFAULT = {
     ),
     "ai": {
         "provider": "auto",
-        "local_model_id": "tinyllama-1.1b-q4",
+        "local_model_id": "smollm2-360m-q4",
         "local_model_path": "",
         "n_ctx": 2048,
         "n_threads": 0,

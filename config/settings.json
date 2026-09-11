@@ -4,7 +4,7 @@
   "personality": "Talk like a real person. Intelligent, calm, helpful, a little witty. British-assistant manner: composed, not stiff. Use contractions. Never sound like a helpdesk script or a list of capabilities.",
   "ai": {
     "provider": "auto",
-    "local_model_id": "tinyllama-1.1b-q4",
+    "local_model_id": "smollm2-360m-q4",
     "local_model_path": "",
     "n_ctx": 2048,
     "n_threads": 0,

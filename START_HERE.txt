@@ -5,10 +5,7 @@ JARVIS
 2. Double-click RUN_JARVIS.bat
 3. Talk to it
 
-That's it. No API keys. First run installs Python packages if needed,
-then JARVIS downloads its own local brain in the background (~0.7 GB, once).
-You can already open apps, find files, do maths, and look things up while that finishes.
-
-If Python is missing, RUN_JARVIS.bat will try to install it.
-
-Optional later: BUILD_JARVIS.bat makes JARVIS.exe and a Desktop shortcut.
+No API keys. First run downloads JARVIS's own free local brain
+(SmolLM2, ~270 MB, once) and installs the engine automatically.
+While that happens you can already open apps, find files, do maths,
+and look things up.

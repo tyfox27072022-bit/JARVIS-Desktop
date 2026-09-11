@@ -86,18 +86,18 @@ class Brain:
         GROK_IDS = {
             "fast", "jarvis", "sharp", "grok", "grok-4.3", "grok-4.5", "grok-4.6",
         }
+        from jarvis.ai.model_catalog import DEFAULT_ID
+
         ai = self.s.get("ai") or {}
-        model_id = ai.get("local_model_id") or "tinyllama-1.1b-q4"
+        model_id = ai.get("local_model_id") or DEFAULT_ID
         if (model_id or "").lower() in GROK_IDS:
-            model_id = "tinyllama-1.1b-q4"
+            model_id = DEFAULT_ID
         custom = (ai.get("local_model_path") or "").strip()
         path = self.models.resolve(model_id, custom or None)
         if not path:
             installed = self.models.list_installed()
             return (
-                "No local model file found in data/models.\n"
-                f"Looking for id={model_id}. Installed: {installed or 'none'}.\n"
-                "Click Download recommended model, wait until it finishes, then Load."
+                "No local model file found yet — first-run install will fetch one."
             )
         try:
             import llama_cpp  # noqa: F401
@@ -127,21 +127,33 @@ class Brain:
         return msg
 
     def bootstrap(self, progress_cb=None) -> str:
-        """First-run: load a local model if present, otherwise download one."""
+        """Install JARVIS's own free local model and load it. No keys."""
         if self.engine.ready:
             return f"Already loaded: {self.engine.model_path.name}"
+        if progress_cb:
+            progress_cb("Looking for a local brain…")
         msg = self.ensure_local_model()
         if self.engine.ready:
             return msg
         try:
-            dl = self.download_model(progress_cb=progress_cb)
+            from jarvis.ai.cli_engine import CliEngine
+
+            if progress_cb:
+                progress_cb("Installing local engine…")
+            try:
+                CliEngine().ensure_binary(progress_cb=progress_cb)
+            except Exception as e:
+                if self.audit:
+                    self.audit.log(f"engine bin: {e}")
+            mid, path = self.models.download_any(progress_cb=progress_cb)
+            self.s.setdefault("ai", {})["local_model_id"] = mid
             load = self.ensure_local_model()
-            return f"{dl}\n{load}"
+            return f"Installed {path.name}. {load}"
         except Exception as e:
             if self.audit:
                 self.audit.log(f"bootstrap: {e}")
             return (
-                "No local weights yet — I'll still open apps, find files, "
+                "Couldn't fetch the local brain yet — I'll still open apps, find files, "
                 f"and look things up. ({e})"
             )
 
@@ -150,7 +162,9 @@ class Brain:
         mid = model_id or ai.get("local_model_id") or probe()["recommended_model_id"]
         grok_ids = {"fast", "jarvis", "sharp", "grok", "grok-4.3", "grok-4.5", "grok-4.6"}
         if (mid or "").lower() in grok_ids:
-            mid = probe()["recommended_model_id"]
+            from jarvis.ai.model_catalog import DEFAULT_ID
+
+            mid = DEFAULT_ID
         path = self.models.download(mid, progress_cb=progress_cb)
         ai["local_model_id"] = mid
         self.s["ai"] = ai

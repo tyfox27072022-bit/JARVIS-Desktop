@@ -13,7 +13,7 @@ def probe() -> dict:
         "ram_gb": None,
         "gpu": "unknown",
         "recommended_tier": "tiny",
-        "recommended_model_id": "tinyllama-1.1b-q4",
+        "recommended_model_id": "smollm2-360m-q4",
         "notes": [],
     }
     try:
@@ -48,12 +48,12 @@ def probe() -> dict:
     ram = info["ram_gb"] or 8
     if ram < 6:
         info["recommended_tier"] = "tiny"
-        info["recommended_model_id"] = "tinyllama-1.1b-q4"
-        info["notes"].append("Low RAM: use the smallest Q4 model.")
+        info["recommended_model_id"] = "smollm2-360m-q4"
+        info["notes"].append("Low RAM: use the 360M brain.")
     elif ram < 12:
         info["recommended_tier"] = "small"
-        info["recommended_model_id"] = "qwen2.5-1.5b-q4"
-        info["notes"].append("8–12 GB RAM: small 1.5B model recommended.")
+        info["recommended_model_id"] = "smollm2-360m-q4"
+        info["notes"].append("Default free brain: SmolLM2 360M.")
     else:
         info["recommended_tier"] = "medium"
         info["recommended_model_id"] = "phi3-mini-q4"

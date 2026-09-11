@@ -101,34 +101,27 @@ class LocalEngine:
             return self._chat_python(system, history, user_message)
         if self.backend == "cli" and self._cli is not None:
             return self._cli.chat(system, history, user_message)
-        raise RuntimeError(
-            "Local model not loaded.\n"
-            "Settings → Download model → Load model.\n"
-            "On Python 3.14 the CLI backend is used automatically (no C++ compile)."
-        )
+        raise RuntimeError("Local model not loaded yet — first-run install still going.")
 
     def _chat_python(self, system: str, history: list[dict], user_message: str) -> str:
         prompt = self._format_prompt(system, history, user_message)
         out = self._llm(
             prompt,
-            max_tokens=min(int(self.max_tokens or 180), 180),
+            max_tokens=min(int(self.max_tokens or 256), 320),
             temperature=0.7,
-            stop=["</s>", "<|user|>", "<|system|>", "\nUser:", "\nTy:"],
+            stop=["<|im_end|>", "<|im_start|>", "</s>", "<|user|>", "<|system|>", "\nUser:", "\nTy:"],
         )
         text = (out["choices"][0].get("text") or "").strip()
-        text = text.replace("<|assistant|>", "").strip()
+        text = text.replace("<|assistant|>", "").replace("<|im_end|>", "").strip()
         return text
 
     def _format_prompt(self, system: str, history: list[dict], user_message: str) -> str:
-        # TinyLlama chat template — generic System/User lines made it parrot the prompt
-        parts = [f"<|system|>\n{system}</s>\n"]
+        parts = [f"<|im_start|>system\n{system}<|im_end|>\n"]
         for h in history[-6:]:
             content = (h.get("content") or "").strip()
             if not content:
                 continue
-            if h.get("role") == "user":
-                parts.append(f"<|user|>\n{content}</s>\n")
-            elif h.get("role") == "assistant":
-                parts.append(f"<|assistant|>\n{content}</s>\n")
-        parts.append(f"<|user|>\n{user_message}</s>\n<|assistant|>\n")
+            role = "user" if h.get("role") == "user" else "assistant"
+            parts.append(f"<|im_start|>{role}\n{content}<|im_end|>\n")
+        parts.append(f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n")
         return "".join(parts)

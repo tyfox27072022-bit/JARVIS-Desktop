@@ -35,14 +35,19 @@ from jarvis.web import WebTools
 class Worker(QThread):
     done = Signal(str)
     failed = Signal(str)
+    progress = Signal(str)
 
-    def __init__(self, fn):
+    def __init__(self, fn, with_progress: bool = False):
         super().__init__()
         self.fn = fn
+        self.with_progress = with_progress
 
     def run(self):
         try:
-            self.done.emit(self.fn())
+            if self.with_progress:
+                self.done.emit(self.fn(self.progress.emit))
+            else:
+                self.done.emit(self.fn())
         except Exception as e:
             self.failed.emit(str(e))
 
@@ -104,16 +109,21 @@ class MainWindow(QMainWindow):
         self._autoload()
 
     def _autoload(self):
-        def job():
+        def job(progress=None):
             try:
-                return self.brain.bootstrap()
+                return self.brain.bootstrap(progress_cb=progress)
             except Exception as e:
                 return f"Startup: {e}"
 
-        self.worker = Worker(job)
+        self.worker = Worker(job, with_progress=True)
         self._workers.append(self.worker)
+        self.worker.progress.connect(self._on_progress)
         self.worker.done.connect(lambda msg: self._on_autoload(msg))
         self.worker.start()
+
+    def _on_progress(self, msg: str):
+        if getattr(self, "status", None):
+            self.status.setText(f"{self.assistant} • {msg}")
 
     def _on_autoload(self, msg: str):
         if getattr(self, "status", None):
@@ -324,8 +334,8 @@ class MainWindow(QMainWindow):
         self.settings["assistant_name"] = self.s_assistant.text().strip() or "JARVIS"
         self.settings.setdefault("ai", {})
         self.settings["ai"]["provider"] = "auto"
-        self.settings["ai"]["model"] = "tinyllama-1.1b-q4"
-        self.settings["ai"]["local_model_id"] = "tinyllama-1.1b-q4"
+        self.settings["ai"]["model"] = "smollm2-360m-q4"
+        self.settings["ai"]["local_model_id"] = "smollm2-360m-q4"
         self.settings["ai"]["local_model_path"] = self.s_model_path.text().strip()
         self.settings["ai"]["api_key"] = ""
         self.settings.setdefault("discord", {})
