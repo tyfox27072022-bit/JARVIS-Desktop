@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 
 APPS = {
@@ -66,9 +67,14 @@ class IntentRouter:
 
         if low in {"help", "what can you do", "commands"}:
             return (
-                "Tell me in plain English. Search the web, write code in the workspace, "
-                "open apps, find and sort folders, check the screen, remember things."
+                "I can open apps, find and open files on this PC, list Desktop/Downloads/Documents, "
+                "search the web, remember things, tell the time anywhere, and chat. "
+                "Try: find file card v · list my desktop · scan my files · open spotify · what time in New York"
             )
+
+        files = self._files(raw, low)
+        if files:
+            return files
 
         opened = self._open(raw, low)
         if opened:
@@ -125,16 +131,6 @@ class IntentRouter:
                 return "Nothing stored yet."
             return "\n".join(f"- {x.get('text')}" for x in items[-20:])
 
-        find = re.match(
-            r"^(?:find|locate)\s+(?:the\s+)?(?:folder|file|directory)?\s*(?:called|named)?\s*(.+)$",
-            raw,
-            re.I,
-        )
-        if find:
-            name = find.group(1).strip()
-            if name.lower() not in {"folder", "file", "directory"}:
-                return self.b.pc.find_named(name)
-
         return None
 
     def _smalltalk(self, low: str) -> str | None:
@@ -167,13 +163,82 @@ class IntentRouter:
             return "A SQL query walks into a bar, walks up to two tables, and asks: “Mind if I join you?”"
         if low in {"do something", "do anything", "prove it", "work", "do your job"}:
             return "Name it. Open an app, find a file, look something up, remember a fact — I'll do that."
-            return "Anytime."
-        if "what time" in low or "the time" in low or low.endswith("right now") or low in {"time", "date"}:
-            return datetime.now().strftime("It's %I:%M %p on %A, %d %B %Y.")
+        timed = self._time(low)
+        if timed:
+            return timed
         if low in {"who are you", "what is your name"}:
             return f"I'm {self.b.s.get('assistant_name', 'JARVIS')}."
         if low in {"who am i", "what is my name"}:
             return f"You're {name}."
+        return None
+
+    def _time(self, low: str) -> str | None:
+        if not (
+            "time" in low or low in {"date", "what's the date", "whats the date"}
+        ):
+            return None
+        zones = {
+            "new york": "America/New_York",
+            "nyc": "America/New_York",
+            "usa": "America/New_York",
+            "us": "America/New_York",
+            "america": "America/New_York",
+            "eastern": "America/New_York",
+            "la": "America/Los_Angeles",
+            "los angeles": "America/Los_Angeles",
+            "pacific": "America/Los_Angeles",
+            "chicago": "America/Chicago",
+            "central": "America/Chicago",
+            "denver": "America/Denver",
+            "london": "Europe/London",
+            "uk": "Europe/London",
+            "tokyo": "Asia/Tokyo",
+        }
+        for name, zid in zones.items():
+            if re.search(rf"\b{re.escape(name)}\b", low):
+                now = datetime.now(ZoneInfo(zid))
+                return now.strftime(f"It's %I:%M %p on %A, %d %B %Y in {name.title()} ({zid}).")
+        if "what time" in low or "the time" in low or low.endswith("right now") or low in {"time", "date"}:
+            return datetime.now().strftime("It's %I:%M %p on %A, %d %B %Y.")
+        return None
+
+    def _files(self, raw: str, low: str) -> str | None:
+        if low in {"clear chat", "clear conversation", "wipe chat"}:
+            return "__CLEAR_CHAT__"
+        if low in {
+            "scan my files", "index my files", "see my files", "see all my files",
+            "look at my files", "show my files", "list my files",
+            "what files do i have", "see the files on my pc", "files on my pc",
+        }:
+            try:
+                self.b.pc.index_home()
+            except Exception:
+                pass
+            return self.b.pc.overview()
+        if "desktop" in low and any(w in low for w in ("list", "show", "what's", "whats", "on my")):
+            return self.b.pc.list_folder(str(Path.home() / "Desktop"))
+        if "download" in low and any(w in low for w in ("list", "show", "what's", "whats", "in")):
+            return self.b.pc.list_folder(str(Path.home() / "Downloads"))
+        if "document" in low and any(w in low for w in ("list", "show", "what's", "whats", "in")):
+            return self.b.pc.list_folder(str(Path.home() / "Documents"))
+
+        m = re.search(r"(?:called|named|for one called)\s+(.+)$", raw, re.I)
+        if m and any(
+            w in low for w in ("file", "folder", "tile", "title", "look", "find", "search", "open", "get")
+        ):
+            name = m.group(1).strip().strip("\"'/?.!")
+            if name and name.lower() not in {"file", "folder", "it"}:
+                return self.b.pc.find_named(name)
+
+        m = re.match(
+            r"^(?:find|locate)\s+(?:the\s+)?(?:folder|file|directory)?\s*(?:called|named)?\s*(.+)$",
+            raw,
+            re.I,
+        )
+        if m:
+            name = m.group(1).strip().strip("\"'/?.!")
+            if name.lower() not in {"folder", "file", "directory", "called", "named"}:
+                return self.b.pc.find_named(name)
         return None
 
     def _open(self, raw: str, low: str) -> str | None:

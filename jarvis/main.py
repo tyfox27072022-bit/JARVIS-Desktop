@@ -291,6 +291,11 @@ class MainWindow(QMainWindow):
         self.input.clear()
         if not msg:
             return
+        if msg.lower().strip("!.?") in {"clear chat", "clear conversation", "wipe chat"}:
+            self.chat.clear()
+            self.brain.history = []
+            self._post(self.assistant, "Chat's cleared.")
+            return
         self._post(self.user, msg)
         self.busy = True
         self.status.setText("THINKING")

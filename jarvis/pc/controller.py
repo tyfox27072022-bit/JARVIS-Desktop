@@ -171,59 +171,135 @@ class PCController:
             "disk_percent": disk,
         }
 
-    def find_named(self, name: str) -> str:
-        if not self._perm("allow_files"):
-            return "File access is disabled."
-        name = name.strip().strip("\"'")
-        if not name:
-            return "Which folder or file?"
-        needle = name.lower()
+    def _home_roots(self) -> list[Path]:
         home = Path.home()
         roots = []
         for r in (
             home / "Desktop",
             home / "Documents",
             home / "Downloads",
+            home / "Pictures",
+            home / "Videos",
+            home / "Music",
             home / "OneDrive" / "Desktop",
             home / "OneDrive" / "Documents",
-            home,
+            home / "OneDrive" / "Downloads",
         ):
             if r.exists() and r.is_dir() and r not in roots:
                 roots.append(r)
+        return roots or [home]
+
+    def find_named(self, name: str) -> str:
+        if not self._perm("allow_files"):
+            return "File access is disabled."
+        name = name.strip().strip("\"'/")
+        if not name:
+            return "Which folder or file?"
+        needle = name.lower()
+        skip = {".git", "node_modules", "__pycache__", ".venv", "venv", "AppData", "Windows"}
         matches, seen = [], set()
-        for root in roots:
+
+        def consider(p: Path):
+            if needle not in p.name.lower():
+                return
             try:
-                for child in root.iterdir():
-                    if needle in child.name.lower():
-                        key = str(child.resolve())
-                        if key not in seen:
-                            seen.add(key)
-                            matches.append(child)
-                    if child.is_dir():
-                        try:
-                            for grand in child.iterdir():
-                                if needle in grand.name.lower():
-                                    key = str(grand.resolve())
-                                    if key not in seen:
-                                        seen.add(key)
-                                        matches.append(grand)
-                        except OSError:
-                            pass
+                key = str(p.resolve())
+            except OSError:
+                key = str(p)
+            if key not in seen:
+                seen.add(key)
+                matches.append(p)
+
+        for root in self._home_roots():
+            try:
+                for p in root.rglob("*"):
+                    if any(part in skip for part in p.parts):
+                        continue
+                    consider(p)
+                    if len(matches) >= 25:
+                        break
             except OSError:
                 continue
+            if len(matches) >= 25:
+                break
+
+        try:
+            from jarvis.paths import DATA
+
+            idx = DATA / "file_index.txt"
+            if idx.exists():
+                for line in idx.read_text(encoding="utf-8", errors="replace").splitlines():
+                    p = Path(line.strip())
+                    if p.name and needle in p.name.lower():
+                        consider(p)
+        except Exception:
+            pass
+
         if not matches:
-            return f"Nothing named '{name}' found under Desktop/Documents/Downloads."
-        lines = [f"Found {len(matches)} match(es):"]
+            return (
+                f"Nothing named '{name}' on Desktop, Documents, Downloads, Pictures, Videos or Music. "
+                "Say 'scan my files' to index more, or tell me the folder."
+            )
+        lines = [f"Found {len(matches)} match(es) for '{name}':"]
         for m in matches[:15]:
-            lines.append(f"• ({'folder' if m.is_dir() else 'file'}) {m}")
-        if matches[0].is_dir():
-            try:
-                self.open_folder(str(matches[0]))
-                lines.append(f"\nOpened: {matches[0]}")
-            except Exception as e:
-                lines.append(f"\nCould not open: {e}")
+            kind = "folder" if m.is_dir() else "file"
+            lines.append(f"• ({kind}) {m}")
+        first = matches[0]
+        try:
+            if first.is_dir():
+                self.open_folder(str(first))
+                lines.append(f"\nOpened folder: {first}")
+            else:
+                if sys.platform == "win32":
+                    os.startfile(str(first))  # type: ignore[attr-defined]
+                else:
+                    subprocess.Popen(["xdg-open", str(first)])
+                lines.append(f"\nOpened: {first}")
+        except Exception as e:
+            lines.append(f"\nFound it but couldn't open: {e}")
         self._log(f"Find named: {name} -> {len(matches)} hits")
         return "\n".join(lines)
+
+    def overview(self) -> str:
+        if not self._perm("allow_files"):
+            return "File access is disabled."
+        blocks = []
+        for root in self._home_roots():
+            try:
+                entries = sorted(root.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+            except OSError:
+                continue
+            lines = [f"{root.name} — {root}"]
+            for e in entries[:30]:
+                mark = "/" if e.is_dir() else ""
+                lines.append(f"  {e.name}{mark}")
+            if len(entries) > 30:
+                lines.append(f"  … {len(entries) - 30} more")
+            blocks.append("\n".join(lines))
+        return "\n\n".join(blocks) or "Couldn't read your user folders."
+
+    def index_home(self, limit_each: int = 200) -> str:
+        if not self._perm("allow_files"):
+            return "File access is disabled."
+        from jarvis.paths import DATA
+
+        all_lines = []
+        notes = []
+        for root in self._home_roots():
+            msg = self.index_folder(str(root), limit=limit_each)
+            notes.append(msg.split("\n")[0])
+            idx = DATA / "file_index.txt"
+            if idx.exists():
+                all_lines.extend(idx.read_text(encoding="utf-8", errors="replace").splitlines())
+        uniq = []
+        seen = set()
+        for line in all_lines:
+            if line and line not in seen:
+                seen.add(line)
+                uniq.append(line)
+        (DATA / "file_index.txt").write_text("\n".join(uniq), encoding="utf-8")
+        self._log(f"Indexed home folders: {len(uniq)} files")
+        return f"I can see {len(uniq)} files across your user folders.\n" + "\n".join(notes)
 
     def list_folder(self, path_or_name: str) -> str:
         if not self._perm("allow_files"):

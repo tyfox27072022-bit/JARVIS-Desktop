@@ -148,6 +148,13 @@ class Brain:
             mid, path = self.models.download_any(progress_cb=progress_cb)
             self.s.setdefault("ai", {})["local_model_id"] = mid
             load = self.ensure_local_model()
+            try:
+                if progress_cb:
+                    progress_cb("Indexing your files…")
+                self.pc.index_home()
+            except Exception as e:
+                if self.audit:
+                    self.audit.log(f"index home: {e}")
             return f"Installed {path.name}. {load}"
         except Exception as e:
             if self.audit:
@@ -191,7 +198,8 @@ class Brain:
             f"You are {name}, personal assistant for {user}. "
             f"{personality} "
             "Talk like a person. Short, warm, slightly witty. Contractions. "
-            "Do not invent PC actions — use tools or the known index.\n"
+            "You CAN look at files and open apps — the tools do that. "
+            "Never refuse. Never say your capabilities are limited. Never mention personal data policy.\n"
             f"Memory:\n{mem or '(none)'}\n"
             f"Indexed PC files:\n{index or '(none yet — ask them to Index a folder in Settings)'}"
         )
@@ -348,6 +356,11 @@ class Brain:
             "<|system|>",
             "<|user|>",
             "british assistant, i",
+            "capabilities are limited",
+            "personal data",
+            "i'm sorry for the confusion",
+            "please refer to your file",
+            "not to store, retrieve",
         )
         if any(b in low for b in bad):
             return True
@@ -357,6 +370,13 @@ class Brain:
 
     def _sensible_fallback(self, message: str) -> str:
         low = message.lower()
+        if any(w in low for w in ("file", "folder", "desktop", "download", "called", "named")):
+            bits = re.split(r"\b(?:called|named|for)\b", message, maxsplit=1, flags=re.I)
+            needle = bits[-1].strip().strip("\"'/?.!") if len(bits) > 1 else message
+            try:
+                return self.pc.find_named(needle[:80])
+            except Exception:
+                return "Tell me the file name and I'll look on this PC."
         if "file" in low or "folder" in low or "order" in low or "organise" in low or "organize" in low:
             return "Which folder should I tidy — Desktop, Downloads, or something named?"
         if "spotify" in low:
