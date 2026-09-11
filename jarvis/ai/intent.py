@@ -396,11 +396,37 @@ class IntentRouter:
             except Exception:
                 pass
             return self.b.pc.overview()
+        if low in {"find it", "find that", "find them", "open it", "open that", "that one"}:
+            if low.startswith("open") or low == "that one":
+                return self.b.pc.open_hit(1)
+            return self.b.pc.find_named(self.b.pc.last_needle or "it", self.b.pc.last_where)
+
+        m = re.match(r"^open\s+(\d+)$", low)
+        if m:
+            return self.b.pc.open_hit(int(m.group(1)))
+
+        loc = re.search(
+            r"(?:look|find|search|show).{0,30}?\bin\s+(downloads?|desktop|documents?|pictures?|videos?|music|onedrive)\s+(?:for\s+)?(.+)$",
+            raw,
+            re.I,
+        )
+        if loc:
+            where, what = loc.group(1), loc.group(2).strip()
+            return self.b.pc.find_named(what, where)
+
+        loc2 = re.search(
+            r"(?:look|find|search|show)\s+(.+?)\s+in\s+(downloads?|desktop|documents?|pictures?|videos?|music)\b",
+            raw,
+            re.I,
+        )
+        if loc2:
+            return self.b.pc.find_named(loc2.group(1), loc2.group(2))
+
         if low in {"list desktop", "list my desktop"} or ("on my desktop" in low):
             return self.b.pc.list_folder(str(Path.home() / "Desktop"))
-        if "download" in low and any(w in low for w in ("list", "what's", "whats", "in")):
+        if low in {"list downloads", "what's in downloads", "whats in downloads"}:
             return self.b.pc.list_folder(str(Path.home() / "Downloads"))
-        if "document" in low and any(w in low for w in ("list", "what's", "whats", "in")):
+        if low in {"list documents", "what's in documents", "whats in documents"}:
             return self.b.pc.list_folder(str(Path.home() / "Documents"))
 
         m = re.search(r"(?:called|named|for one called)\s+(.+)$", raw, re.I)
@@ -418,7 +444,7 @@ class IntentRouter:
         )
         if m:
             name = m.group(1).strip().strip("\"'/?.!")
-            if name.lower() not in {"folder", "file", "directory", "called", "named"}:
+            if name.lower() not in {"folder", "file", "directory", "called", "named", "it", "that"}:
                 return self.b.pc.find_named(name)
         return None
 

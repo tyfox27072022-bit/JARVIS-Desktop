@@ -21,6 +21,9 @@ class PCController:
         self.allowed_apps = {
             k.lower(): v for k, v in (self.settings.get("allowed_apps") or {}).items()
         }
+        self.last_hits: list[Path] = []
+        self.last_needle = ""
+        self.last_where = ""
 
     def _log(self, msg: str):
         if self.audit:
@@ -368,7 +371,7 @@ class PCController:
 
     def _home_roots(self) -> list[Path]:
         home = Path.home()
-        roots = []
+        roots = [home]
         for r in (
             home / "Desktop",
             home / "Documents",
@@ -376,26 +379,62 @@ class PCController:
             home / "Pictures",
             home / "Videos",
             home / "Music",
-            home / "OneDrive" / "Desktop",
-            home / "OneDrive" / "Documents",
-            home / "OneDrive" / "Downloads",
+            home / "OneDrive",
         ):
             if r.exists() and r.is_dir() and r not in roots:
                 roots.append(r)
-        return roots or [home]
+        if sys.platform == "win32":
+            for letter in "DEFG":
+                drive = Path(f"{letter}:/")
+                if drive.exists():
+                    roots.append(drive)
+        return roots
 
-    def find_named(self, name: str) -> str:
+    def _folder_from_hint(self, hint: str | None) -> Path | None:
+        if not hint:
+            return None
+        h = hint.lower().strip()
+        home = Path.home()
+        table = {
+            "download": home / "Downloads",
+            "downloads": home / "Downloads",
+            "desktop": home / "Desktop",
+            "document": home / "Documents",
+            "documents": home / "Documents",
+            "picture": home / "Pictures",
+            "pictures": home / "Pictures",
+            "video": home / "Videos",
+            "videos": home / "Videos",
+            "music": home / "Music",
+            "onedrive": home / "OneDrive",
+        }
+        p = table.get(h)
+        if p and p.exists():
+            return p
+        return None
+
+    def find_named(self, name: str, where: str | None = None) -> str:
         if not self._perm("allow_files"):
             return "File access is disabled."
-        name = name.strip().strip("\"'/")
-        if not name:
-            return "Which folder or file?"
-        needle = name.lower()
-        skip = {".git", "node_modules", "__pycache__", ".venv", "venv", "AppData", "Windows"}
+        name = (name or "").strip().strip("\"'/")
+        stop = {"it", "that", "this", "them", "file", "files", "folder", "the", "a", "one", "some", "my"}
+        bits = [w for w in re.split(r"\s+", name.lower()) if w and w not in stop]
+        needle = " ".join(bits) if bits else name.lower()
+        if len(needle) < 2:
+            if self.last_hits:
+                return self._format_hits(self.last_hits, self.last_needle, self.last_where)
+            return "What am I looking for?"
+        folder = self._folder_from_hint(where)
+        skip = {
+            ".git", "node_modules", "__pycache__", ".venv", "venv", "AppData",
+            "Windows", "$Recycle.Bin", "System Volume Information", "node_modules",
+        }
         matches, seen = [], set()
+        scanned = 0
 
         def consider(p: Path):
-            if needle not in p.name.lower():
+            n = p.name.lower()
+            if needle not in n and not all(b in n for b in bits):
                 return
             try:
                 key = str(p.resolve())
@@ -405,55 +444,83 @@ class PCController:
                 seen.add(key)
                 matches.append(p)
 
-        for root in self._home_roots():
+        roots = [folder] if folder else self._home_roots()
+        for root in roots:
+            if root is None or not root.exists():
+                continue
             try:
                 for p in root.rglob("*"):
+                    scanned += 1
+                    if scanned > 40000:
+                        break
                     if any(part in skip for part in p.parts):
                         continue
                     consider(p)
-                    if len(matches) >= 25:
+                    if len(matches) >= 40:
                         break
             except OSError:
                 continue
-            if len(matches) >= 25:
+            if len(matches) >= 40 or scanned > 40000:
                 break
 
-        try:
-            from jarvis.paths import DATA
+        self.last_hits = matches
+        self.last_needle = needle
+        self.last_where = where or "your PC"
+        return self._format_hits(matches, needle, self.last_where)
 
-            idx = DATA / "file_index.txt"
-            if idx.exists():
-                for line in idx.read_text(encoding="utf-8", errors="replace").splitlines():
-                    p = Path(line.strip())
-                    if p.name and needle in p.name.lower():
-                        consider(p)
-        except Exception:
-            pass
-
+    def _format_hits(self, matches: list, needle: str, where: str) -> str:
         if not matches:
-            return (
-                f"Nothing named '{name}' on Desktop, Documents, Downloads, Pictures, Videos or Music. "
-                "Say 'scan my files' to index more, or tell me the folder."
-            )
-        lines = [f"Found {len(matches)} match(es) for '{name}':"]
-        for m in matches[:15]:
+            loc = where or "your PC"
+            return f"Nothing with “{needle}” in {loc}. Want me to look somewhere else?"
+        # Prefer files over deep nested dupes; unique by name
+        uniq = []
+        seen_name = set()
+        for m in matches:
+            key = m.name.lower()
+            if key in seen_name:
+                continue
+            seen_name.add(key)
+            uniq.append(m)
+        lines = [f"Found {len(uniq)} for “{needle}” in {where or 'your folders'}:"]
+        for i, m in enumerate(uniq[:12], 1):
             kind = "folder" if m.is_dir() else "file"
-            lines.append(f"• ({kind}) {m}")
-        first = matches[0]
-        try:
-            if first.is_dir():
-                self.open_folder(str(first))
-                lines.append(f"\nOpened folder: {first}")
-            else:
-                if sys.platform == "win32":
+            lines.append(f"{i}. {m.name}  ({kind})\n   {m}")
+        extra = len(uniq) - 12
+        if extra > 0:
+            lines.append(f"…and {extra} more.")
+        if len(uniq) == 1:
+            first = uniq[0]
+            try:
+                if first.is_dir():
+                    self.open_folder(str(first))
+                elif sys.platform == "win32":
                     os.startfile(str(first))  # type: ignore[attr-defined]
-                else:
-                    subprocess.Popen(["xdg-open", str(first)])
-                lines.append(f"\nOpened: {first}")
-        except Exception as e:
-            lines.append(f"\nFound it but couldn't open: {e}")
-        self._log(f"Find named: {name} -> {len(matches)} hits")
+                lines.append(f"\nOpened {first.name}.")
+            except Exception:
+                lines.append("\nSay open 1 if you want it.")
+        else:
+            lines.append("\nSay open 1 (or 2, 3…) and I'll open that one.")
+        self.last_hits = uniq
+        self._log(f"Find {needle}: {len(uniq)}")
         return "\n".join(lines)
+
+    def open_hit(self, index: int) -> str:
+        if not self.last_hits:
+            return "I haven't found anything yet. Tell me what to look for."
+        i = index - 1
+        if i < 0 or i >= len(self.last_hits):
+            return f"I've only got {len(self.last_hits)} results."
+        p = self.last_hits[i]
+        try:
+            if p.is_dir():
+                self.open_folder(str(p))
+            elif sys.platform == "win32":
+                os.startfile(str(p))  # type: ignore[attr-defined]
+            else:
+                subprocess.Popen(["xdg-open", str(p)])
+        except Exception as e:
+            return f"Couldn't open {p.name}: {e}"
+        return f"Opened {p.name}."
 
     def overview(self) -> str:
         if not self._perm("allow_files"):
