@@ -1,3 +1,4 @@
+import html
 import sys
 from datetime import datetime
 
@@ -27,6 +28,7 @@ from jarvis.paths import BASE, WORKSPACE
 from jarvis.pc import PCController
 from jarvis.security import AuditLog
 from jarvis.updates import ImprovementManager
+from jarvis.ui import apply_theme
 from jarvis.vault import VaultLibrary
 from jarvis.voice import VoiceEngine
 from jarvis.web import WebTools
@@ -95,7 +97,7 @@ class MainWindow(QMainWindow):
         self._workers = []
 
         self.setWindowTitle(self.assistant)
-        self.resize(1100, 720)
+        self.resize(1120, 740)
 
         tabs = QTabWidget()
         self.setCentralWidget(tabs)
@@ -103,7 +105,7 @@ class MainWindow(QMainWindow):
         tabs.addTab(self._memory_tab(), "Memory")
         tabs.addTab(self._vault_tab(), "Vault")
         tabs.addTab(self._settings_tab(), "Settings")
-        tabs.addTab(self._log_tab(), "Activity Log")
+        tabs.addTab(self._log_tab(), "Activity")
 
         self.audit.log("JARVIS started")
         self._autoload()
@@ -123,46 +125,73 @@ class MainWindow(QMainWindow):
 
     def _on_progress(self, msg: str):
         if getattr(self, "status", None):
-            self.status.setText(f"{self.assistant} • {msg}")
+            self.status.setText(msg)
 
     def _on_autoload(self, msg: str):
         if getattr(self, "status", None):
-            self.status.setText(f"{self.assistant} • {self.brain.mode_label}")
+            self.status.setText(self.brain.mode_label.upper())
         text = msg or ""
-        if any(s in text for s in ("Loaded", "Already loaded", "CLI engine ready")):
-            self.chat.append(f"{self.assistant}: Local brain is online.")
+        if any(s in text for s in ("Loaded", "Already loaded", "CLI engine ready", "Installed")):
+            self._post(self.assistant, "Local brain is online.")
         elif "No local" in text or "skipped" in text or "download" in text.lower():
             pass
 
     def _chat_tab(self) -> QWidget:
         w = QWidget()
         layout = QVBoxLayout(w)
-        mode = self.brain.mode_label
-        self.status = QLabel(f"{self.assistant} • {self.brain.mode_label}")
+        layout.setContentsMargins(22, 18, 22, 18)
+        layout.setSpacing(12)
+        head = QHBoxLayout()
+        title = QLabel(self.assistant)
+        title.setObjectName("title")
+        self.status = QLabel(self.brain.mode_label.upper())
+        self.status.setObjectName("status")
+        head.addWidget(title)
+        head.addStretch()
+        head.addWidget(self.status)
         self.chat = QTextEdit()
         self.chat.setReadOnly(True)
         self.input = QLineEdit()
         self.input.setPlaceholderText(f"Talk to {self.assistant}…")
         send = QPushButton("Send")
+        send.setObjectName("primary")
+        send.setDefault(True)
         speak_btn = QPushButton("Speak")
         shot = QPushButton("Screenshot")
         row = QHBoxLayout()
-        row.addWidget(self.input)
+        row.setSpacing(8)
+        row.addWidget(self.input, 1)
         row.addWidget(send)
         row.addWidget(speak_btn)
         row.addWidget(shot)
-        layout.addWidget(self.status)
-        layout.addWidget(self.chat)
+        layout.addLayout(head)
+        layout.addWidget(self.chat, 1)
         layout.addLayout(row)
         send.clicked.connect(self.send)
         self.input.returnPressed.connect(self.send)
         speak_btn.clicked.connect(self.listen)
         shot.clicked.connect(self.screenshot)
-        self.chat.append(
-            f"{self.assistant}: {greeting(self.user)} "
-            "I'll install my local brain in the background — you can talk now."
+        self._post(
+            self.assistant,
+            f"{greeting(self.user)} I'll install my local brain in the background — you can talk now.",
         )
         return w
+
+    def _post(self, who: str, text: str):
+        mine = who == self.user
+        color = "#8a8474" if mine else "#e8c547"
+        safe = html.escape(text or "").replace("\n", "<br>")
+        self.chat.append(
+            f'<div style="margin:10px 0 16px 0;">'
+            f'<div style="color:{color};font-size:11px;letter-spacing:0.14em;">{html.escape(who.upper())}</div>'
+            f'<div style="color:#e8e4d8;margin-top:4px;line-height:1.5;">{safe}</div>'
+            f"</div>"
+        )
+
+    def _pad(self, inner: QWidget) -> QWidget:
+        inner.layout().setContentsMargins(22, 18, 22, 18)
+        inner.layout().setSpacing(12)
+        return inner
 
     def _memory_tab(self) -> QWidget:
         w = QWidget()
@@ -179,7 +208,7 @@ class MainWindow(QMainWindow):
         refresh.clicked.connect(self.refresh_memory)
         clear.clicked.connect(self.clear_memory)
         self.refresh_memory()
-        return w
+        return self._pad(w)
 
     def _vault_tab(self) -> QWidget:
         w = QWidget()
@@ -196,7 +225,7 @@ class MainWindow(QMainWindow):
         refresh.clicked.connect(self.refresh_vault)
         import_btn.clicked.connect(self.import_script)
         self.refresh_vault()
-        return w
+        return self._pad(w)
 
     def _settings_tab(self) -> QWidget:
         w = QWidget()
@@ -216,6 +245,7 @@ class MainWindow(QMainWindow):
         self.s_voice = QCheckBox("Speak replies aloud")
         self.s_voice.setChecked(bool((self.settings.get("voice") or {}).get("enabled")))
         save_btn = QPushButton("Save settings")
+        save_btn.setObjectName("primary")
         index_btn = QPushButton("Index a folder on this PC")
         discord_btn = QPushButton("Start Discord (phone DMs)")
         form.addRow("Your name", self.s_user)
@@ -229,13 +259,17 @@ class MainWindow(QMainWindow):
         index_btn.clicked.connect(self.index_folder)
         discord_btn.clicked.connect(self.start_discord)
         hint = QLabel(
-            "JARVIS installs its own local brain on first run. No API keys.\n"
+            "JARVIS installs its own local brain on first run.\n"
             "Index a folder if you want it to learn files on this PC.\n"
-            "Discord is only for talking from your phone — optional.\n\n"
-            "Made and created by ty_fox07"
+            "Discord is only for talking from your phone — optional."
         )
         hint.setWordWrap(True)
+        credit = QLabel("Made and created by ty_fox07")
+        credit.setObjectName("credit")
         form.addRow(hint)
+        form.addRow(credit)
+        form.setContentsMargins(22, 18, 22, 18)
+        form.setSpacing(12)
         return w
 
     def _log_tab(self) -> QWidget:
@@ -248,7 +282,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(refresh)
         refresh.clicked.connect(self.refresh_log)
         self.refresh_log()
-        return w
+        return self._pad(w)
 
     def send(self):
         if self.busy:
@@ -257,9 +291,9 @@ class MainWindow(QMainWindow):
         self.input.clear()
         if not msg:
             return
-        self.chat.append(f"<b>{self.user}:</b> {msg}")
+        self._post(self.user, msg)
         self.busy = True
-        self.status.setText(f"{self.assistant} • Thinking…")
+        self.status.setText("THINKING")
         self.worker = Worker(lambda: self.brain.chat(msg))
         self._workers.append(self.worker)
         self.worker.done.connect(lambda a: self._reply(a))
@@ -268,8 +302,8 @@ class MainWindow(QMainWindow):
 
     def _reply(self, answer: str):
         self.busy = False
-        self.status.setText(f"{self.assistant} • {self.brain.mode_label}")
-        self.chat.append(f"<b>{self.assistant}:</b> {answer}")
+        self.status.setText(self.brain.mode_label.upper())
+        self._post(self.assistant, answer)
         if self.voice.enabled or (self.settings.get("voice") or {}).get("enabled"):
             self.voice.speak(answer)
         self.refresh_memory()
@@ -291,7 +325,7 @@ class MainWindow(QMainWindow):
             return
         try:
             self.pc.screenshot(path)
-            self.chat.append(f"{self.assistant}: Screenshot saved to {path}")
+            self._post(self.assistant, f"Screenshot saved to {path}")
             self.audit.log(f"Screenshot {path}")
         except Exception as e:
             QMessageBox.warning(self, "Screenshot", str(e))
@@ -361,14 +395,14 @@ class MainWindow(QMainWindow):
         self.voice = VoiceEngine(self.settings.get("voice", {}))
         self.brain.s = self.settings
         self.pc.settings = self.settings.get("pc") or {}
-        self.status.setText(f"{self.assistant} • {self.brain.mode_label}")
+        self.status.setText(self.brain.mode_label.upper())
         self.setWindowTitle(self.assistant)
         QMessageBox.information(self, "Settings", "Saved.")
         self.audit.log("Settings saved")
 
     def download_model(self):
         self.save_settings()
-        self.chat.append(f"{self.assistant}: Downloading model — this can take several minutes…")
+        self._post(self.assistant, "Downloading model — this can take several minutes…")
         self.busy = True
 
         def job():
@@ -388,9 +422,9 @@ class MainWindow(QMainWindow):
         self.save_settings()
         try:
             msg = self.brain.ensure_local_model()
-            self.status.setText(f"{self.assistant} • {self.brain.mode_label}")
+            self.status.setText(self.brain.mode_label.upper())
             QMessageBox.information(self, "Model", msg)
-            self.chat.append(f"{self.assistant}: {msg}")
+            self._post(self.assistant, msg)
         except Exception as e:
             QMessageBox.warning(self, "Model", str(e))
 
@@ -405,7 +439,7 @@ class MainWindow(QMainWindow):
         try:
             msg = self.pc.index_folder(path)
             QMessageBox.information(self, "Indexed", msg[:1500])
-            self.chat.append(f"{self.assistant}: {msg[:800]}")
+            self._post(self.assistant, msg[:800])
             self.audit.log(f"Indexed folder {path}")
         except Exception as e:
             QMessageBox.warning(self, "Index failed", str(e))
@@ -437,6 +471,7 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+    apply_theme(app)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
