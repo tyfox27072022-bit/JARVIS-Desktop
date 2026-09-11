@@ -630,6 +630,37 @@ class PCController:
             return "No visible window titles."
         return "Open windows:\n" + "\n".join(f"- {t}" for t in titles[:40])
 
+    def focus_window(self, name: str) -> str:
+        name = (name or "").strip()
+        if not name:
+            return "Which window?"
+        try:
+            import pygetwindow as gw
+
+            hits = [w for w in gw.getAllWindows() if name.lower() in (w.title or "").lower()]
+            if hits:
+                w = hits[0]
+                try:
+                    w.restore()
+                except Exception:
+                    pass
+                w.activate()
+                return f"Focused {w.title}."
+        except Exception:
+            pass
+        if sys.platform == "win32":
+            try:
+                subprocess.Popen(
+                    [
+                        "powershell", "-NoProfile", "-Command",
+                        f"(New-Object -ComObject WScript.Shell).AppActivate('{name.replace(chr(39), '')}')",
+                    ]
+                )
+                return f"Tried to focus {name}."
+            except Exception as e:
+                return str(e)
+        return f"Couldn't focus {name}."
+
     def screen_report(self) -> str:
         if not self._perm("allow_screen"):
             return "Screen access is disabled in settings."

@@ -100,19 +100,30 @@ class IntentRouter:
 
         if low in {"help", "what can you do", "commands"}:
             return (
-                "I'm an AI on this PC. I chain jobs, sort files, research, code, search, control apps.\n"
-                "Try: tidy downloads then find duplicates · research rust · "
+                "I'm an AI on this PC — I plan jobs, not just one-liners.\n"
+                "Try: get my downloads under control · brief me · research rust · "
                 "look in downloads for rust then open 1 · new project called shop · "
-                "files containing TODO in downloads · 50 usd to gbp · remind me to text mum"
+                "open last download · email bob@x.com about Friday · focus chrome"
             )
 
         from jarvis.ai.advanced import handle as advanced_handle
         from jarvis.ai.jobs import handle as jobs_handle
         from jarvis.ai.extras import handle as extras_handle
+        from jarvis.ai.pro import handle as pro_handle
+        from jarvis.ai.goals import handle as goals_handle
 
         fb = self._feedback(raw, low)
         if fb:
             return fb
+
+        if depth == 0:
+            goal = goals_handle(self.b, raw)
+            if goal:
+                return goal
+
+        pro = pro_handle(self.b, raw)
+        if pro:
+            return pro
 
         adv = advanced_handle(self.b, raw)
         if adv:
