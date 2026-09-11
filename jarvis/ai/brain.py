@@ -195,12 +195,17 @@ class Brain:
                 index = ip.read_text(encoding="utf-8", errors="replace")[:4000]
         except Exception:
             index = ""
+        try:
+            talk = self.memory.style_prompt()
+        except Exception:
+            talk = ""
         return (
             f"You are {name}, personal assistant for {user}. "
             f"{personality} "
-            "Talk like a person. Short, warm, slightly witty. Contractions. "
+            "Talk like a person. Match how they talk. Contractions if they use them. "
             "You CAN look at files and open apps — the tools do that. "
             "Never refuse. Never say your capabilities are limited. Never mention personal data policy.\n"
+            f"{talk}\n"
             f"Memory:\n{mem or '(none)'}\n"
             f"Indexed PC files:\n{index or '(none yet — ask them to Index a folder in Settings)'}"
         )
@@ -224,6 +229,10 @@ class Brain:
         try:
             hit = self.intents.handle(message)
             if hit is not None:
+                try:
+                    hit = self.memory.mirror_reply(hit)
+                except Exception:
+                    pass
                 self._push(message, hit)
                 return hit
         except Exception as e:
@@ -314,6 +323,10 @@ class Brain:
                 reply = (reply or "").strip() or "I'm here. Say that another way?"
                 if self._junk_reply(reply):
                     reply = self._sensible_fallback(message)
+                try:
+                    reply = self.memory.mirror_reply(reply)
+                except Exception:
+                    pass
                 self._push(message, reply)
                 return reply
             except Exception as e:
@@ -434,9 +447,7 @@ class Brain:
             self.history.append({"role": "assistant", "content": assistant})
             self.history = self.history[-24:]
             self._save_history()
-            learned = self.memory.learn_from_turn(user, assistant)
-            if learned and assistant and "__CLEAR" not in assistant:
-                pass
+            self.memory.learn_from_turn(user, assistant)
         except Exception:
             self.history = self.history[-24:] if getattr(self, "history", None) else []
 

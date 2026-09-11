@@ -73,6 +73,11 @@ class IntentRouter:
             )
 
         if low in {
+            "how do i talk", "what's my style", "whats my style",
+            "how do i sound", "learn how i talk",
+        }:
+            return self.b.memory.style_report()
+        if low in {
             "what do you know about me", "what have you learned",
             "what do you remember about me", "what do you know",
         }:

@@ -87,8 +87,15 @@ class MemoryStore:
 
     def learn_from_turn(self, user_text: str, assistant_text: str = "") -> list[str]:
         from jarvis.ai.learn import extract, skip_message
+        from jarvis.ai.style import merge_profile
 
         learned = []
+        if (user_text or "").strip():
+            try:
+                self.style = merge_profile(self.style, user_text)
+                self.save_style()
+            except Exception:
+                pass
         if not skip_message(user_text):
             hits = extract(user_text)
             if not hits and len((user_text or "").strip()) > 24 and not user_text.strip().endswith("?"):
@@ -109,12 +116,33 @@ class MemoryStore:
             )
             self.data["conversation_snippets"] = snippets[-80:]
             self.save()
-            try:
-                recent = [s.get("text", "") for s in self.data["conversation_snippets"][-12:]]
-                self.learn_style_from_messages(recent)
-            except Exception:
-                pass
         return learned
+
+    def style_prompt(self) -> str:
+        from jarvis.ai.style import prompt_block
+
+        return prompt_block(self.style)
+
+    def mirror_reply(self, text: str) -> str:
+        from jarvis.ai.style import mirror
+
+        return mirror(text, self.style)
+
+    def style_report(self) -> str:
+        t = self.style.get("traits") or {}
+        summary = self.style.get("summary") or "Not enough chat yet — keep talking."
+        examples = self.style.get("examples") or []
+        lines = [summary]
+        if t:
+            lines.append(
+                f"Tone: {t.get('tone')} · length: {t.get('detail_level')} · "
+                f"contractions: {'yes' if t.get('contractions') else 'not really'} · "
+                f"from {t.get('samples_seen', 0)} messages."
+            )
+        if examples:
+            lines.append("Things you've said that I'm matching:")
+            lines.extend(f"  “{e}”" for e in examples[-5:])
+        return "\n".join(lines)
 
     def about_user(self) -> str:
         items = []

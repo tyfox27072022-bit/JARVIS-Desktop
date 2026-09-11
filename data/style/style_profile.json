@@ -1,0 +1,31 @@
+{
+  "summary": "Ty talks casual, short messages (avg 16 chars). Slang/markers: nah, yeah. Sound like this: “yeah nah im good” Match his length and wording. Don't go stiff or corporate.",
+  "examples": [
+    "yeah nah im good"
+  ],
+  "traits": {
+    "greeting_style": "short",
+    "detail_level": "short",
+    "tone": "casual",
+    "contractions": false,
+    "lowercase": true,
+    "avg_chars": 16.0,
+    "samples_seen": 1,
+    "abbreviations": [
+      "nah",
+      "yeah"
+    ]
+  },
+  "updated": "2026-09-11T22:44:35",
+  "acc": {
+    "n": 1,
+    "chars": 16,
+    "words": 4,
+    "casual": 2,
+    "contractions": 0,
+    "questions": 0,
+    "bangs": 0,
+    "lower": 1.0,
+    "fragments": 1
+  }
+}
