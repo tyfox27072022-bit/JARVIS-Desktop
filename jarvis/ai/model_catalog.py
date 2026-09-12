@@ -31,7 +31,7 @@ MODELS = {
         "name": "Qwen2.5 1.5B Instruct Q4_K_M",
         "filename": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
         "url": (
-            "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/"
+            "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/"
             "resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
         ),
         "approx_gb": 1.1,

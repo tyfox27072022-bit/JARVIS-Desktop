@@ -259,6 +259,17 @@ class Brain:
             self._push(message, reply)
             return reply
 
+        try:
+            from jarvis.ai.composer import handle as compose
+
+            hit = compose(self, message)
+            if hit:
+                self._push(message, hit)
+                return hit
+        except Exception as e:
+            if self.audit:
+                self.audit.log(f"composer: {e}")
+
         if self._needs_online(message):
             try:
                 hit = self.web.answer(message, open_browser=True)
@@ -338,9 +349,10 @@ class Brain:
                 reply = (reply or "").strip() or "I'm here. Say that another way?"
                 if self._junk_reply(reply):
                     try:
+                        from jarvis.ai.composer import handle as compose
                         from jarvis.ai.jobs import handle as jobs_handle
 
-                        job = jobs_handle(self, message)
+                        job = jobs_handle(self, message) or compose(self, message)
                         if job:
                             reply = job
                         else:

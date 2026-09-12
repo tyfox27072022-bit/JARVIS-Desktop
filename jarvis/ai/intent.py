@@ -106,10 +106,10 @@ class IntentRouter:
 
         if low in {"help", "what can you do", "commands"}:
             return (
-                "I'm an AI on this PC — I plan jobs, learn workflows, and read your files.\n"
-                "Try: get my downloads under control · brief me · "
-                "when I say night, do volume down then lock my pc · "
-                "what do my files say about rust · top processes · my ip"
+                "I'm JARVIS — free ChatGPT-style assistant on this PC.\n"
+                "Ask anything. I write, explain, code, search, run the PC, learn workflows.\n"
+                "Follow-ups: continue · shorter · longer · eli5 · in bullets · as a table · examples · try again\n"
+                "Also: get my downloads under control · brief me · when I say night, do volume down then lock my pc"
             )
 
         from jarvis.ai.advanced import handle as advanced_handle
