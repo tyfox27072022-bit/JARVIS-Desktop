@@ -29,6 +29,7 @@ from jarvis.pc import PCController
 from jarvis.security import AuditLog
 from jarvis.updates import ImprovementManager
 from jarvis.ui import apply_theme
+from jarvis.ui.format import chat_html
 from jarvis.vault import VaultLibrary
 from jarvis.web import WebTools
 
@@ -154,18 +155,38 @@ class MainWindow(QMainWindow):
         send = QPushButton("Send")
         send.setObjectName("primary")
         send.setDefault(True)
+        copy_btn = QPushButton("Copy last")
         shot = QPushButton("Screenshot")
         row = QHBoxLayout()
         row.setSpacing(8)
         row.addWidget(self.input, 1)
         row.addWidget(send)
+        row.addWidget(copy_btn)
         row.addWidget(shot)
+        chips = QHBoxLayout()
+        chips.setSpacing(6)
+        self._chip_bar = QWidget()
+        self._chip_bar.setLayout(chips)
+        for label, cmd in (
+            ("Brief me", "brief me"),
+            ("Help", "help"),
+            ("Tidy downloads", "tidy downloads"),
+            ("What's going on", "catch me up"),
+        ):
+            b = QPushButton(label)
+            b.setObjectName("chip")
+            b.clicked.connect(lambda _=False, c=cmd: self._chip(c))
+            chips.addWidget(b)
+        chips.addStretch()
         layout.addLayout(head)
         layout.addWidget(self.chat, 1)
+        layout.addWidget(self._chip_bar)
         layout.addLayout(row)
         send.clicked.connect(self.send)
         self.input.returnPressed.connect(self.send)
+        copy_btn.clicked.connect(self.copy_last)
         shot.clicked.connect(self.screenshot)
+        self._last_reply = ""
         hist = getattr(self.brain, "history", None) or []
         if hist:
             for turn in hist[-40:]:
@@ -179,20 +200,27 @@ class MainWindow(QMainWindow):
         else:
             self._post(
                 self.assistant,
-                f"{greeting(self.user)} I'll install my local brain in the background — you can talk now.",
+                f"{greeting(self.user)} Ask anything. I'll look it up, write, code, or run this PC. Shortcuts are under the chat.",
             )
         return w
 
     def _post(self, who: str, text: str):
         mine = who == self.user
-        color = "#8a8474" if mine else "#e8c547"
-        safe = html.escape(text or "").replace("\n", "<br>")
-        self.chat.append(
-            f'<div style="margin:10px 0 16px 0;">'
-            f'<div style="color:{color};font-size:11px;letter-spacing:0.14em;">{html.escape(who.upper())}</div>'
-            f'<div style="color:#e8e4d8;margin-top:4px;line-height:1.5;">{safe}</div>'
-            f"</div>"
-        )
+        if not mine:
+            self._last_reply = text or ""
+        self.chat.append(chat_html(who, text, mine))
+
+    def _chip(self, cmd: str):
+        self.input.setText(cmd)
+        self.send()
+        if getattr(self, "_chip_bar", None):
+            self._chip_bar.hide()
+
+    def copy_last(self):
+        text = getattr(self, "_last_reply", "") or ""
+        if not text:
+            return
+        QApplication.clipboard().setText(text)
 
     def _pad(self, inner: QWidget) -> QWidget:
         inner.layout().setContentsMargins(22, 18, 22, 18)
@@ -301,7 +329,10 @@ class MainWindow(QMainWindow):
             self._post(self.assistant, "Chat's cleared.")
             return
         self._post(self.user, msg)
+        if getattr(self, "_chip_bar", None):
+            self._chip_bar.hide()
         self.busy = True
+        self.input.setEnabled(False)
         self.status.setText("THINKING")
         self.worker = Worker(lambda: self.brain.chat(msg))
         self._workers.append(self.worker)
@@ -311,6 +342,8 @@ class MainWindow(QMainWindow):
 
     def _reply(self, answer: str):
         self.busy = False
+        self.input.setEnabled(True)
+        self.input.setFocus()
         self.status.setText(self.brain.mode_label.upper())
         self._post(self.assistant, answer)
         self.refresh_memory()

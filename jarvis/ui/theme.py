@@ -78,6 +78,18 @@ QPushButton#primary:hover {
   background: #f0d56a;
   color: #14110a;
 }
+QPushButton#chip {
+  background: #12100a;
+  color: #cfc6a8;
+  border: 1px solid #2a2618;
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+QPushButton#chip:hover {
+  border-color: #e8c547;
+  color: #e8c547;
+}
 QCheckBox {
   color: #e8e4d8;
   spacing: 10px;

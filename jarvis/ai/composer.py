@@ -81,6 +81,10 @@ def _followup(brain, raw, low):
         if not topic:
             return "Redo what?"
         return _compose_answer(brain, topic, depth="long")
+    m = re.match(r"^(?:what about|and|how about|also)\s+(.+)$", raw, re.I)
+    if m and topic:
+        nxt = m.group(1).strip().strip("?.!")
+        return _compose_answer(brain, f"{topic} — {nxt}", depth="explain")
     return None
 
 
@@ -277,8 +281,8 @@ def _facts(brain, topic: str) -> str:
 
         for fn in (try_math, try_weather, try_wiki):
             hit = fn(topic)
-            if hit:
-                bits.append(hit)
+            if _clean_fact(hit):
+                bits.append(_clean_fact(hit))
                 break
     except Exception:
         pass
@@ -286,8 +290,9 @@ def _facts(brain, topic: str) -> str:
         web = getattr(brain, "web", None)
         if web:
             hit = web.answer(topic, open_browser=False)
-            if hit:
-                bits.append(hit)
+            c = _clean_fact(hit)
+            if c:
+                bits.append(c)
     except Exception:
         pass
     # de-dupe
@@ -298,3 +303,12 @@ def _facts(brain, topic: str) -> str:
             seen.add(k)
             out.append(b)
     return "\n".join(out)[:2500]
+
+
+def _clean_fact(hit) -> str:
+    t = (hit or "").strip()
+    if not t:
+        return ""
+    if t.startswith("<") or t.lower().startswith("<!doctype"):
+        return ""
+    return t
