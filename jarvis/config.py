@@ -14,12 +14,12 @@ DEFAULT = {
     ),
     "ai": {
         "provider": "auto",
-        "local_model_id": "smollm2-360m-q4",
+        "local_model_id": "qwen2.5-1.5b-q4",
         "local_model_path": "",
-        "n_ctx": 2048,
+        "n_ctx": 4096,
         "n_threads": 0,
-        "temperature": 0.5,
-        "max_tokens": 512,
+        "temperature": 0.6,
+        "max_tokens": 768,
         "n_gpu_layers": 0,
         "max_agent_steps": 6,
         "api_base": "",
@@ -100,6 +100,13 @@ def load() -> dict:
                 data = _merge(data, loaded)
         except Exception:
             pass
+    ai = data.setdefault("ai", {})
+    if (ai.get("local_model_id") or "") in {"smollm2-360m-q4", "tinyllama-1.1b-q4", ""}:
+        ai["local_model_id"] = "qwen2.5-1.5b-q4"
+    if (ai.get("n_ctx") or 0) < 4096:
+        ai["n_ctx"] = 4096
+    if (ai.get("max_tokens") or 0) < 768:
+        ai["max_tokens"] = 768
     return data
 
 

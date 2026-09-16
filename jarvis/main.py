@@ -273,7 +273,7 @@ class MainWindow(QMainWindow):
         self.s_apikey = QLineEdit("")
         self.s_discord = QLineEdit((self.settings.get("discord") or {}).get("bot_token", ""))
         self.s_discord.setEchoMode(QLineEdit.EchoMode.Password)
-        self.s_ctx = QLineEdit(str(ai.get("n_ctx", 2048)))
+        self.s_ctx = QLineEdit(str(ai.get("n_ctx", 4096)))
         self.s_temp = QLineEdit(str(ai.get("temperature", 0.5)))
         self.s_maxtok = QLineEdit(str(ai.get("max_tokens", 512)))
         self.s_discord.setEchoMode(QLineEdit.EchoMode.Password)
@@ -291,7 +291,7 @@ class MainWindow(QMainWindow):
         index_btn.clicked.connect(self.index_folder)
         discord_btn.clicked.connect(self.start_discord)
         hint = QLabel(
-            "JARVIS installs its own local brain on first run.\n"
+            "JARVIS uses Qwen2.5 (free, ~1 GB) as its local brain.\n"
             "Index a folder if you want it to learn files on this PC.\n"
             "Discord is only for talking from your phone — optional."
         )
@@ -401,16 +401,16 @@ class MainWindow(QMainWindow):
         self.settings["assistant_name"] = self.s_assistant.text().strip() or "JARVIS"
         self.settings.setdefault("ai", {})
         self.settings["ai"]["provider"] = "auto"
-        self.settings["ai"]["model"] = "smollm2-360m-q4"
-        self.settings["ai"]["local_model_id"] = "smollm2-360m-q4"
+        self.settings["ai"]["model"] = "qwen2.5-1.5b-q4"
+        self.settings["ai"]["local_model_id"] = "qwen2.5-1.5b-q4"
         self.settings["ai"]["local_model_path"] = self.s_model_path.text().strip()
         self.settings["ai"]["api_key"] = ""
         self.settings.setdefault("discord", {})
         self.settings["discord"]["bot_token"] = self.s_discord.text().strip()
         try:
-            self.settings["ai"]["n_ctx"] = int(self.s_ctx.text().strip() or "2048")
+            self.settings["ai"]["n_ctx"] = int(self.s_ctx.text().strip() or "4096")
         except ValueError:
-            self.settings["ai"]["n_ctx"] = 2048
+            self.settings["ai"]["n_ctx"] = 4096
         try:
             self.settings["ai"]["temperature"] = float(self.s_temp.text().strip() or "0.5")
         except ValueError:

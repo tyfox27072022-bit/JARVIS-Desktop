@@ -1,8 +1,21 @@
 """Free open-weight GGUF models JARVIS installs itself. No API keys."""
 
 MODELS = {
+    "qwen2.5-1.5b-q4": {
+        "name": "Qwen2.5 1.5B Instruct Q4_K_M",
+        "filename": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+        "url": (
+            "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/"
+            "resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+        ),
+        "approx_gb": 1.0,
+        "context_default": 4096,
+        "tier": "medium",
+        "notes": "Default brain. Free Qwen chat model, ~1 GB.",
+        "template": "chatml",
+    },
     "smollm2-360m-q4": {
-        "name": "JARVIS brain — SmolLM2 360M Instruct",
+        "name": "SmolLM2 360M Instruct",
         "filename": "SmolLM2-360M-Instruct-Q4_K_M.gguf",
         "url": (
             "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/"
@@ -11,7 +24,7 @@ MODELS = {
         "approx_gb": 0.27,
         "context_default": 2048,
         "tier": "tiny",
-        "notes": "Default. Free, small, chats on CPU.",
+        "notes": "Fallback if Qwen cannot download.",
         "template": "chatml",
     },
     "tinyllama-1.1b-q4": {
@@ -24,27 +37,13 @@ MODELS = {
         "approx_gb": 0.67,
         "context_default": 2048,
         "tier": "small",
-        "notes": "Fallback if SmolLM2 cannot download.",
+        "notes": "Last-resort fallback.",
         "template": "tinyllama",
-    },
-    "qwen2.5-1.5b-q4": {
-        "name": "Qwen2.5 1.5B Instruct Q4_K_M",
-        "filename": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
-        "url": (
-            "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/"
-            "resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
-        ),
-        "approx_gb": 1.1,
-        "context_default": 4096,
-        "tier": "medium",
-        "notes": "Smarter; larger download.",
-        "template": "chatml",
     },
 }
 
-# First-run order: smallest real chat model first
-DEFAULT_ORDER = ["smollm2-360m-q4", "tinyllama-1.1b-q4", "qwen2.5-1.5b-q4"]
-DEFAULT_ID = "smollm2-360m-q4"
+DEFAULT_ORDER = ["qwen2.5-1.5b-q4", "smollm2-360m-q4", "tinyllama-1.1b-q4"]
+DEFAULT_ID = "qwen2.5-1.5b-q4"
 
 
 def list_models() -> list[dict]:

@@ -6,6 +6,6 @@ JARVIS
 3. Talk to it
 
 No API keys. First run downloads JARVIS's own free local brain
-(SmolLM2, ~270 MB, once) and installs the engine automatically.
+(Qwen2.5 1.5B, ~1 GB, once) and installs the engine automatically.
 While that happens you can already open apps, find files, do maths,
 and look things up.

@@ -13,7 +13,7 @@ def probe() -> dict:
         "ram_gb": None,
         "gpu": "unknown",
         "recommended_tier": "tiny",
-        "recommended_model_id": "smollm2-360m-q4",
+        "recommended_model_id": "qwen2.5-1.5b-q4",
         "notes": [],
     }
     try:
@@ -46,18 +46,14 @@ def probe() -> dict:
     info["gpu_mode"] = gpu
 
     ram = info["ram_gb"] or 8
-    if ram < 6:
+    if ram < 4:
         info["recommended_tier"] = "tiny"
         info["recommended_model_id"] = "smollm2-360m-q4"
-        info["notes"].append("Low RAM: use the 360M brain.")
-    elif ram < 12:
-        info["recommended_tier"] = "small"
-        info["recommended_model_id"] = "smollm2-360m-q4"
-        info["notes"].append("Default free brain: SmolLM2 360M.")
+        info["notes"].append("Very low RAM: SmolLM2 360M fallback.")
     else:
         info["recommended_tier"] = "medium"
-        info["recommended_model_id"] = "phi3-mini-q4"
-        info["notes"].append("12+ GB RAM: Phi-3 Mini Q4 is a good balance.")
+        info["recommended_model_id"] = "qwen2.5-1.5b-q4"
+        info["notes"].append("Default brain: Qwen2.5 1.5B (~1 GB).")
         if gpu == "gpu":
             info["notes"].append("Discrete GPU detected — llama-cpp may use it if built with GPU support.")
 
