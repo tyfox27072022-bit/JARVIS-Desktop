@@ -107,8 +107,8 @@ class LocalEngine:
         prompt = self._format_prompt(system, history, user_message)
         out = self._llm(
             prompt,
-            max_tokens=min(int(self.max_tokens or 256), 320),
-            temperature=0.7,
+            max_tokens=min(int(self.max_tokens or 768), 1024),
+            temperature=float(self.temperature or 0.6),
             stop=["<|im_end|>", "<|im_start|>", "</s>", "<|user|>", "<|system|>", "\nUser:", "\nTy:"],
         )
         text = (out["choices"][0].get("text") or "").strip()

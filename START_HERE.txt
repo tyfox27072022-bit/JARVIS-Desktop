@@ -5,7 +5,8 @@ JARVIS
 2. Double-click RUN_JARVIS.bat
 3. Talk to it
 
-No API keys. First run downloads JARVIS's own free local brain
-(Qwen2.5 1.5B, ~1 GB, once) and installs the engine automatically.
+No API keys. First run downloads Qwen2.5 1.5B (~1 GB, once).
+Leave the window open and it watches what you do (apps + screen).
+Say "look at my screen" or click Screenshot. Private windows are skipped.
 While that happens you can already open apps, find files, do maths,
 and look things up.

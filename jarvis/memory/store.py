@@ -17,6 +17,7 @@ class MemoryStore:
             "preferences": [],
             "projects": [],
             "notes": [],
+            "activity": [],
             "conversation_snippets": [],
         }
         self.load()
@@ -151,7 +152,7 @@ class MemoryStore:
 
     def about_user(self) -> str:
         items = []
-        for cat in ("facts", "preferences", "instructions", "notes"):
+        for cat in ("facts", "preferences", "instructions", "notes", "activity"):
             for item in self.data.get(cat, [])[-20:]:
                 if isinstance(item, dict) and item.get("text"):
                     items.append(f"- ({cat}) {item['text']}")
@@ -192,7 +193,7 @@ class MemoryStore:
 
     def context(self, max_items: int = 40) -> str:
         chunks = []
-        for cat in ("instructions", "preferences", "facts", "projects", "notes"):
+        for cat in ("instructions", "preferences", "facts", "projects", "notes", "activity"):
             for item in self.data.get(cat, [])[-max_items:]:
                 if isinstance(item, dict) and item.get("text"):
                     chunks.append(f"{cat}: {item['text']}")

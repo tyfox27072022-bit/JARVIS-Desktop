@@ -210,8 +210,19 @@ class IntentRouter:
         if low in {"wifi", "open wifi"}:
             return self.b.pc.open_wifi()
 
-        if "on my screen" in low or low in {"look at my screen", "what's on screen", "whats on screen"}:
-            return self.b.pc.screen_report()
+        if "on my screen" in low or low in {
+            "look at my screen", "what's on screen", "whats on screen",
+            "what's on my screen", "what is on my screen", "whats on my screen",
+            "see my screen", "read my screen", "what am i looking at",
+        }:
+            return self.b.see()
+        if low in {
+            "what have i been doing", "what am i doing", "what was i doing",
+            "what have i been up to", "learn from what i do",
+        }:
+            from jarvis.pc.watch import report
+
+            return report()
         if low in {"list windows", "what windows are open"}:
             return self.b.pc.list_windows()
 

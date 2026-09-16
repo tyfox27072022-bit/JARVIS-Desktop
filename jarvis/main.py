@@ -2,7 +2,7 @@ import html
 import sys
 from datetime import datetime
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -108,6 +108,11 @@ class MainWindow(QMainWindow):
 
         self.audit.log("JARVIS started")
         self._autoload()
+        self._watch_timer = QTimer(self)
+        self._watch_timer.setInterval(20000)
+        self._watch_timer.timeout.connect(self._watch_tick)
+        if (self.settings.get("pc") or {}).get("allow_watch", True):
+            self._watch_timer.start()
 
     def _autoload(self):
         def job(progress=None):
@@ -121,6 +126,17 @@ class MainWindow(QMainWindow):
         self.worker.progress.connect(self._on_progress)
         self.worker.done.connect(lambda msg: self._on_autoload(msg))
         self.worker.start()
+
+    def _watch_tick(self):
+        if not (self.settings.get("pc") or {}).get("allow_watch", True):
+            return
+        try:
+            from jarvis.pc.watch import distill, sample
+
+            sample()
+            distill(self.memory)
+        except Exception:
+            pass
 
     def _on_progress(self, msg: str):
         if getattr(self, "status", None):
@@ -170,8 +186,8 @@ class MainWindow(QMainWindow):
         for label, cmd in (
             ("Brief me", "brief me"),
             ("Help", "help"),
-            ("Tidy downloads", "tidy downloads"),
-            ("What's going on", "catch me up"),
+            ("Look at my screen", "look at my screen"),
+            ("What have I been doing", "what have I been doing"),
         ):
             b = QPushButton(label)
             b.setObjectName("chip")
@@ -284,6 +300,9 @@ class MainWindow(QMainWindow):
         form.addRow("Your name", self.s_user)
         form.addRow("Assistant name", self.s_assistant)
         form.addRow("Discord bot token (optional)", self.s_discord)
+        self.s_watch = QCheckBox("Watch my screen and learn what I do")
+        self.s_watch.setChecked(bool((self.settings.get("pc") or {}).get("allow_watch", True)))
+        form.addRow(self.s_watch)
         form.addRow(save_btn)
         form.addRow(index_btn)
         form.addRow(discord_btn)
@@ -291,8 +310,8 @@ class MainWindow(QMainWindow):
         index_btn.clicked.connect(self.index_folder)
         discord_btn.clicked.connect(self.start_discord)
         hint = QLabel(
-            "JARVIS uses Qwen2.5 (free, ~1 GB) as its local brain.\n"
-            "Index a folder if you want it to learn files on this PC.\n"
+            "JARVIS uses Qwen2.5 only (free, ~1 GB) as its local brain.\n"
+            "It can read your screen and learn the apps you use while this window is open.\n"
             "Discord is only for talking from your phone — optional."
         )
         hint.setWordWrap(True)
@@ -350,17 +369,17 @@ class MainWindow(QMainWindow):
         self.refresh_log()
 
     def screenshot(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Save screenshot", str(WORKSPACE / "screenshot.png"), "PNG (*.png)"
-        )
-        if not path:
-            return
-        try:
-            self.pc.screenshot(path)
-            self._post(self.assistant, f"Screenshot saved to {path}")
-            self.audit.log(f"Screenshot {path}")
-        except Exception as e:
-            QMessageBox.warning(self, "Screenshot", str(e))
+        self.status.setText("LOOKING")
+        self.busy = True
+
+        def job():
+            return self.brain.see()
+
+        self.worker = Worker(job)
+        self._workers.append(self.worker)
+        self.worker.done.connect(lambda a: self._reply(a))
+        self.worker.failed.connect(lambda e: self._reply(f"Screen: {e}"))
+        self.worker.start()
 
     def refresh_memory(self):
         items = self.memory.list_all()
@@ -419,7 +438,13 @@ class MainWindow(QMainWindow):
             self.settings["ai"]["max_tokens"] = int(self.s_maxtok.text().strip() or "512")
         except ValueError:
             self.settings["ai"]["max_tokens"] = 512
+        self.settings.setdefault("pc", {})
+        self.settings["pc"]["allow_watch"] = bool(self.s_watch.isChecked())
         save(self.settings)
+        if self.s_watch.isChecked():
+            self._watch_timer.start()
+        else:
+            self._watch_timer.stop()
         self.user = self.settings["user_name"]
         self.assistant = self.settings["assistant_name"]
         self.brain.s = self.settings

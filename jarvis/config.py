@@ -31,6 +31,7 @@ DEFAULT = {
         "allow_mouse": True,
         "allow_keyboard": True,
         "allow_screen": True,
+        "allow_watch": True,
         "allow_apps": True,
         "allow_files": True,
         "allow_shell": False,
@@ -101,7 +102,7 @@ def load() -> dict:
         except Exception:
             pass
     ai = data.setdefault("ai", {})
-    if (ai.get("local_model_id") or "") in {"smollm2-360m-q4", "tinyllama-1.1b-q4", ""}:
+    if (ai.get("local_model_id") or "") != "qwen2.5-1.5b-q4":
         ai["local_model_id"] = "qwen2.5-1.5b-q4"
     if (ai.get("n_ctx") or 0) < 4096:
         ai["n_ctx"] = 4096

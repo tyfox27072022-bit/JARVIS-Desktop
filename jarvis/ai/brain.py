@@ -167,6 +167,29 @@ class Brain:
                 f"and look things up. ({e})"
             )
 
+    def see(self) -> str:
+        from jarvis.pc.vision import describe
+        from jarvis.paths import DATA
+
+        raw = describe(self.pc)
+        try:
+            DATA.mkdir(parents=True, exist_ok=True)
+            (DATA / "last_screen.txt").write_text(raw, encoding="utf-8")
+        except Exception:
+            pass
+        if self.engine.ready:
+            try:
+                summary = self.engine.chat(
+                    "You can see Ty's screen as text. Say what he's doing in 2-4 short sentences. No lectures.",
+                    [],
+                    raw[:2500],
+                )
+                if summary and not self._junk_reply(summary):
+                    return summary.strip() + "\n\n" + raw[:900]
+            except Exception:
+                pass
+        return raw
+
     def download_model(self, model_id: str | None = None, progress_cb=None) -> str:
         ai = self.s.get("ai") or {}
         mid = model_id or ai.get("local_model_id") or probe()["recommended_model_id"]
@@ -201,18 +224,36 @@ class Brain:
             talk = self.memory.style_prompt()
         except Exception:
             talk = ""
+        activity = ""
+        try:
+            from jarvis.pc.watch import context_block
+
+            activity = context_block()
+        except Exception:
+            activity = ""
+        screen = ""
+        try:
+            from jarvis.paths import DATA
+
+            sp = DATA / "last_screen.txt"
+            if sp.exists():
+                screen = sp.read_text(encoding="utf-8", errors="replace")[:1200]
+        except Exception:
+            screen = ""
         return (
-            f"You are {name}, an AI personal assistant Ty built — not a human, not a generic chatbot. "
-            f"You learn from what {user} says, how he talks, files you index, and feedback "
-            f"('too long', 'don't do that'). Memory survives closing the app. "
+            f"You are {name}, an AI personal assistant Ty built — not a human. "
+            f"Your only local brain is Qwen2.5. You learn from what {user} says, how he talks, "
+            f"files, the screen, and the apps he uses. Memory survives closing the app. "
             f"{personality} "
             "Talk like someone in the room: short unless asked, contractions, a bit witty. "
             "If asked what you are, be honest: you're an AI that learns. Don't lecture about it. "
-            "You CAN look at files and open apps — the tools do that. "
-            "Never refuse. Never say your capabilities are limited. Never mention personal data policy.\n"
+            "You CAN look at the screen, files and apps — the tools do that. "
+            "Never refuse. Never say your capabilities are limited.\n"
             f"{talk}\n"
             f"Memory:\n{mem or '(none)'}\n"
-            f"Indexed PC files:\n{index or '(none yet — ask them to Index a folder in Settings)'}"
+            f"What he's been doing:\n{activity or '(watching when the app is open)'}\n"
+            f"Last screen read:\n{screen or '(none yet — say look at my screen)'}\n"
+            f"Indexed PC files:\n{index or '(none yet)'}"
         )
 
     def chat(self, message: str) -> str:
@@ -258,17 +299,6 @@ class Brain:
             reply = "Yeah, all good. You?"
             self._push(message, reply)
             return reply
-
-        try:
-            from jarvis.ai.composer import handle as compose
-
-            hit = compose(self, message)
-            if hit:
-                self._push(message, hit)
-                return hit
-        except Exception as e:
-            if self.audit:
-                self.audit.log(f"composer: {e}")
 
         if self._needs_online(message):
             try:
@@ -374,10 +404,16 @@ class Brain:
                 return fallback
 
         try:
+            from jarvis.ai.composer import handle as compose
             from jarvis.ai.free_brain import answer
 
-            hit = answer(message, self.web)
+            hit = answer(message, self.web) or compose(self, message)
             if hit:
+                self._push(message, hit)
+                return hit
+        except Exception as e:
+            if self.audit:
+                self.audit.log(f"free brain: {e}")
                 self._push(message, hit)
                 return hit
         except Exception as e:
@@ -620,7 +656,7 @@ class Brain:
             "whats on my screen",
             "look at my screen",
         ):
-            return self.pc.screen_report()
+            return self.see()
         if low in ("list windows", "what windows are open"):
             return self.pc.list_windows()
 
