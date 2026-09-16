@@ -109,9 +109,11 @@ class MainWindow(QMainWindow):
         self.audit.log("JARVIS started")
         self._autoload()
         self._watch_timer = QTimer(self)
-        self._watch_timer.setInterval(20000)
+        self._watch_timer.setInterval(4000)
         self._watch_timer.timeout.connect(self._watch_tick)
-        if (self.settings.get("pc") or {}).get("allow_watch", True):
+        from jarvis.pc.watch import is_on
+
+        if is_on() and (self.settings.get("pc") or {}).get("allow_watch", True):
             self._watch_timer.start()
 
     def _autoload(self):
@@ -128,15 +130,20 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def _watch_tick(self):
-        if not (self.settings.get("pc") or {}).get("allow_watch", True):
+        from jarvis.pc.watch import distill, is_on, tick
+
+        if not is_on():
+            self._watch_timer.stop()
+            if getattr(self, "status", None) and not self.busy:
+                self.status.setText(self.brain.mode_label.upper())
             return
         try:
-            from jarvis.pc.watch import distill, sample
-
-            sample()
+            tick(self.pc)
             distill(self.memory)
         except Exception:
             pass
+        if getattr(self, "status", None) and not self.busy:
+            self.status.setText("WATCHING")
 
     def _on_progress(self, msg: str):
         if getattr(self, "status", None):
@@ -300,8 +307,10 @@ class MainWindow(QMainWindow):
         form.addRow("Your name", self.s_user)
         form.addRow("Assistant name", self.s_assistant)
         form.addRow("Discord bot token (optional)", self.s_discord)
-        self.s_watch = QCheckBox("Watch my screen and learn what I do")
-        self.s_watch.setChecked(bool((self.settings.get("pc") or {}).get("allow_watch", True)))
+        self.s_watch = QCheckBox("Watch my screen until I say stop")
+        from jarvis.pc.watch import is_on as _watch_on
+
+        self.s_watch.setChecked(_watch_on())
         form.addRow(self.s_watch)
         form.addRow(save_btn)
         form.addRow(index_btn)
@@ -363,7 +372,18 @@ class MainWindow(QMainWindow):
         self.busy = False
         self.input.setEnabled(True)
         self.input.setFocus()
-        self.status.setText(self.brain.mode_label.upper())
+        try:
+            from jarvis.pc.watch import is_on
+
+            if is_on():
+                if not self._watch_timer.isActive():
+                    self._watch_timer.start()
+                self.status.setText("WATCHING")
+            else:
+                self._watch_timer.stop()
+                self.status.setText(self.brain.mode_label.upper())
+        except Exception:
+            self.status.setText(self.brain.mode_label.upper())
         self._post(self.assistant, answer)
         self.refresh_memory()
         self.refresh_log()
@@ -440,9 +460,13 @@ class MainWindow(QMainWindow):
             self.settings["ai"]["max_tokens"] = 512
         self.settings.setdefault("pc", {})
         self.settings["pc"]["allow_watch"] = bool(self.s_watch.isChecked())
+        from jarvis.pc.watch import set_on
+
+        set_on(bool(self.s_watch.isChecked()))
         save(self.settings)
         if self.s_watch.isChecked():
             self._watch_timer.start()
+            self.status.setText("WATCHING")
         else:
             self._watch_timer.stop()
         self.user = self.settings["user_name"]

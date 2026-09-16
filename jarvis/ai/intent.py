@@ -87,6 +87,10 @@ class IntentRouter:
         if mac:
             return mac
 
+        watch = self._watch_cmd(low)
+        if watch:
+            return watch
+
         if depth == 0:
             from jarvis.ai.advanced import split_compound
 
@@ -364,7 +368,9 @@ class IntentRouter:
         if any(p in low for p in ("be serious", "less jokes")):
             mem.add_instruction("Stay more serious.")
             return "I'll keep it straight."
-        if low.startswith(("don't ", "dont ", "never ", "stop ")):
+        if low.startswith(("don't ", "dont ", "never ", "stop ")) and not low.startswith(
+            ("stop watching", "stop looking", "stop watch")
+        ):
             mem.add_instruction(raw.strip())
             return "Alright. I won't."
         if low.startswith("always "):
@@ -464,6 +470,41 @@ class IntentRouter:
                 return now.strftime(f"It's %I:%M %p on %A, %d %B %Y in {name.title()} ({zid}).")
         if "what time" in low or "the time" in low or low.endswith("right now") or low in {"time", "date"}:
             return datetime.now().strftime("It's %I:%M %p on %A, %d %B %Y.")
+        return None
+
+    def _watch_cmd(self, low: str) -> str | None:
+        if low in {
+            "watch my screen", "keep watching", "keep watching my screen",
+            "start watching", "start watching my screen", "watch me",
+            "keep an eye on my screen", "don't stop watching", "dont stop watching",
+        }:
+            from jarvis.pc.watch import set_on, tick
+
+            set_on(True)
+            try:
+                tick(self.b.pc)
+            except Exception:
+                pass
+            return (
+                "Watching your screen until you say stop watching. "
+                "I'll keep going after you close and reopen — until you tell me to stop."
+            )
+        if low in {
+            "stop watching", "stop watching my screen", "don't watch", "dont watch",
+            "stop looking", "stop looking at my screen", "stop watch",
+        }:
+            from jarvis.pc.watch import set_on
+
+            set_on(False)
+            return "Stopped. I won't watch until you say watch my screen."
+        if low in {"are you watching", "are you watching me", "watching?"}:
+            from jarvis.pc.watch import is_on
+
+            return (
+                "Yes — still watching. Say stop watching to end it."
+                if is_on()
+                else "No. Say watch my screen if you want me on it."
+            )
         return None
 
     def _files(self, raw: str, low: str) -> str | None:
